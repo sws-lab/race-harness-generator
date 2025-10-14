@@ -2,8 +2,9 @@ import io
 from typing import Optional, Iterable
 from race_harness.error import RHError
 from race_harness.ir.ref import RHRef
+from race_harness.ir.operation import RHOperation
 from race_harness.ir.entities.entity import RHEntity
-from race_harness.ir.entities import RHSymbol, RHFixedSet, RHProtocol, RHInstance, RHInstrBlock, RHProcess, RHModule, RHScope
+from race_harness.ir.entities import RHSymbol, RHFixedSet, RHProtocol, RHInstance, RHInstruction, RHEffectBlock, RHPredicateBlock, RHProcess, RHModule, RHScope, RHSet
 
 class RHContext:
     def __init__(self):
@@ -37,10 +38,23 @@ class RHContext:
         self._add_entity(instance)
         return instance
     
-    def new_instr_block(self) -> RHInstrBlock:
-        block = RHInstrBlock(self._new_ref())
+    def new_predicate_block(self) -> RHPredicateBlock:
+        block = RHPredicateBlock(self._new_ref())
         self._add_entity(block)
         return block
+    
+    def new_effect_block(self) -> RHEffectBlock:
+        block = RHEffectBlock(self._new_ref())
+        self._add_entity(block)
+        return block
+    
+    def new_instruction(self, block: RHRef, operation: RHOperation) -> RHInstruction:
+        instruction = RHInstruction(self._new_ref(), operation)
+        if instruction.is_effect:
+            block = self[block].to_effect_block()
+        else:
+            block = self[block].to_predicate_block()
+        block.add_instruction(instruction)
     
     def new_process(self, proto: RHRef, entry_block: RHRef) -> RHProcess:
         proc = RHProcess(self._new_ref(), self[proto], self[entry_block])
@@ -65,6 +79,11 @@ class RHContext:
         module = RHModule(self._new_ref(), processes, instances)
         self._add_entity(module)
         return module
+    
+    def new_set(self, name: str, domain: RHRef) -> RHSet:
+        set = RHSet(self._new_ref(), name, self._check_ref(domain))
+        self._add_entity(set)
+        return set
     
     def get(self, ref: RHRef) -> Optional[RHEntity]:
         return self._entities.get(ref)

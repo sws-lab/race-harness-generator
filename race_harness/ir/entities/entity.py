@@ -47,11 +47,17 @@ class RHEntity(abc.ABC):
     def to_scope(self) -> 'RHScope':
         return self._coerce(self.as_scope())
     
-    def as_instr_block(self) -> Optional['RHInstrBlock']:
+    def as_effect_block(self) -> Optional['RHEffectBlock']:
         return None
     
-    def to_instr_block(self) -> 'RHInstrBlock':
-        return self._coerce(self.as_instr_block())
+    def to_effect_block(self) -> 'RHEffectBlock':
+        return self._coerce(self.as_effect_block())
+    
+    def as_predicate_block(self) -> Optional['RHPredicateBlock']:
+        return None
+    
+    def to_predicate_block(self) -> 'RHPredicateBlock':
+        return self._coerce(self.as_predicate_block())
     
     def as_process(self) -> Optional['RHProcess']:
         return None
@@ -64,6 +70,18 @@ class RHEntity(abc.ABC):
     
     def to_module(self) -> 'RHModule':
         return self._coerce(self.as_module())
+    
+    def as_instruction(self) -> 'RHInstruction':
+        return None
+    
+    def to_instruction(self) -> 'RHInstruction':
+        return self._coerce(self.as_instruction())
+    
+    def as_set(self) -> 'RHSet':
+        return None
+    
+    def to_set(self) -> 'RHSet':
+        return self._coerce(self.as_set())
     
     def _coerce(self, value):
         if value is None:

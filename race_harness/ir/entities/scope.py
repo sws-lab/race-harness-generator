@@ -33,6 +33,9 @@ class RHScope(RHEntity):
         if ref is None:
             raise RHError(f'Unable to find binding {name} is scope')
         return ref
+    
+    def __getitem__(self, name: str) -> RHRef:
+        return self.resolve(name)
 
     def __str__(self):
         out = io.StringIO()

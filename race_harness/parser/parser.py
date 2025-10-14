@@ -1,7 +1,7 @@
 import pathlib
 from typing import Optional
 import lark
-from race_harness.ir import RHContext, RHProtocol, RHInstrBlock, RHScope
+from race_harness.ir import RHContext, RHProtocol, RHEffectBlock, RHScope
 
 SCRIPT_FILEPATH = pathlib.Path(__file__)
 
@@ -81,14 +81,33 @@ class RHInterp(lark.visitors.Interpreter):
         self._scope.bind(instance_name, ref)
         return ('instance', items)
 
-    def _get_instr_block(self) -> RHInstrBlock:
+    def _get_instr_block(self) -> RHEffectBlock:
         if self._instr_block is None:
-            self._instr_block = self._ctx.new_instr_block()
+            self._instr_block = self._ctx.new_effect_block()
         return self._instr_block
 
     def compound_stmt(self, tree: lark.Tree):
         block = self._get_instr_block()
+        scope = self._ctx.new_scope(self._scope.ref)
+        subinterp = RHInterp(self._ctx, scope, self._proto)
+        for item in tree.children[1:-1]:
+            subinterp.visit(item)
         return block
+    
+    def var_decl_stmt(self, tree: lark.Tree):
+        name = self.visit(tree.children[1])
+        var_type = self.visit(tree.children[3])
+        if var_type[0] == 'set':
+            set = self._ctx.new_set(name, var_type[1])
+            self._scope.bind(name, set.ref)
+
+    def symbol(self, tree: lark.Tree):
+        return str(tree.children[0])
+    
+    def set_var_type(self, tree: lark.Tree):
+        name = self.visit(tree.children[1])
+        ref = self._scope[name]
+        return ('set', ref)
 
 class RHParser:
     def __init__(self):

@@ -1,10 +1,10 @@
 from race_harness.ir.ref import RHRef
 from race_harness.ir.entities.entity import RHEntity
 from race_harness.ir.entities.protocol import RHProtocol
-from race_harness.ir.entities.block import RHInstrBlock
+from race_harness.ir.entities.block import RHEffectBlock
 
 class RHProcess(RHEntity):
-    def __init__(self, ref: RHRef, proto: RHProtocol, entry_block: RHInstrBlock):
+    def __init__(self, ref: RHRef, proto: RHProtocol, entry_block: RHEffectBlock):
         super().__init__(ref, None)
         self._proto = proto
         self._entry_block = entry_block
@@ -17,7 +17,7 @@ class RHProcess(RHEntity):
         return self._proto
     
     @property
-    def entry_block(self) -> RHInstrBlock:
+    def entry_block(self) -> RHEffectBlock:
         return self._entry_block
     
     def __str__(self):

@@ -3,7 +3,9 @@ from .symbol import RHSymbol
 from .fixed_set import RHFixedSet
 from .protocol import RHProtocol
 from .instance import RHInstance
-from .block import RHInstrBlock, RHInstrBlockBranch
+from .instruction import RHInstruction
+from .block import RHEffectBlock, RHPredicateBlock
 from .scope import RHScope
 from .module import RHModule
 from .process import RHProcess
+from .set import RHSet
