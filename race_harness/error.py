@@ -1,0 +1,1 @@
+class RHError(Exception): pass

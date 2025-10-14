@@ -1,0 +1,40 @@
+enum msg {
+    req_conn
+    disconnect
+    grant
+    loaded
+    unload
+}
+
+proc pclient in msg out msg {
+    loop alive branch recv loaded then {
+        send req_conn driver
+        branch {
+            recv grant then {
+                do acquire_conn
+                do use_conn
+                do release_conn
+                send disconnect driver
+            }
+            recv unload then continue alive
+        }
+    }
+}
+
+proc pdriver {
+    var active_clients: set clients
+    loop alive {
+        do load
+        send loaded clients
+        loop loaded branch {
+            recv req_conn from client then set active_clients add client
+            recv disconnect from client then set active_clients del client
+            set active_clients empty then break loaded
+        }
+        send unload clients
+        do unload
+    }
+}
+
+run driver pdriver
+run clients[4] pclient
