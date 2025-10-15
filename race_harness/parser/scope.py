@@ -2,16 +2,11 @@ import io
 from typing import Optional
 from race_harness.error import RHError
 from race_harness.ir.ref import RHRef
-from race_harness.ir.entities.entity import RHEntity
 
-class RHScope(RHEntity):
-    def __init__(self, ref: RHRef, parent: Optional['RHScope']):
-        super().__init__(ref)
+class RHScope:
+    def __init__(self, parent: Optional['RHScope']):
         self._parent = parent
         self._bindings = dict()
-
-    def as_scope(self):
-        return self
     
     @property
     def parent(self) -> Optional['RHScope']:

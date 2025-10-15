@@ -17,7 +17,8 @@ KW_SEND: "send"
 KW_LOOP: "loop"
 KW_BREAK: "break"
 KW_CONTINUE: "continue"
-KW_BRANCH: "branch"
+KW_IF: "if"
+KW_ELSE: "else"
 KW_TRUE: "true"
 KW_FALSE: "false"
 KW_RECV: "recv"
@@ -30,7 +31,6 @@ KW_EMPTY: "empty"
 KW_ADD: "add"
 KW_DEL: "del"
 KW_AND: "and"
-KW_OR: "or"
 KW_NONDET: "nondet"
 
 LEFT_BRACKET: "["
@@ -40,34 +40,31 @@ RIGHT_BRACE: "}"
 COLON: ":"
 
 symbol: IDENTIFIER
+symbol_set: LEFT_BRACE symbol+ RIGHT_BRACE
 
 var_type: KW_SET symbol -> set_var_type
 
-condition: KW_TRUE -> cond_true
-         | KW_FALSE -> cond_false
-         | KW_RECV symbol (KW_FROM symbol)? -> cond_single_recv
-         | KW_RECV LEFT_BRACE symbol RIGHT_BRACE (KW_FROM symbol)? -> cond_multi_recv
+condition: KW_RECV symbol (KW_FROM symbol)? -> cond_single_recv
+         | KW_RECV symbol_set (KW_FROM symbol)? -> cond_multi_recv
          | KW_SET symbol KW_HAS symbol -> cond_set_has
          | KW_SET symbol KW_EMPTY -> cond_set_empty
          | condition (KW_AND condition)+ -> cond_and
-         | condition (KW_OR condition)+ -> cond_or
          | KW_NONDET -> cond_nondet
-
-branch: condition KW_THEN stmt
 
 stmt: KW_NOOP -> noop_stmt
     | LEFT_BRACE stmt* RIGHT_BRACE -> compound_stmt
     | KW_DO IDENTIFIER -> action_stmt
     | KW_SEND symbol symbol -> unicast_send_stmt
     | KW_SEND symbol LEFT_BRACE symbol+ RIGHT_BRACE -> multicast_send_stmt
-    | KW_LOOP symbol stmt -> loop_stmt
+    | KW_LOOP stmt -> loop_stmt
     | KW_BREAK symbol -> break_stmt
     | KW_CONTINUE symbol -> continue_stmt
-    | KW_BRANCH branch -> single_branch_stmt
-    | KW_BRANCH LEFT_BRACE branch+ RIGHT_BRACE -> multi_branch_stmt
+    | KW_IF condition KW_THEN stmt KW_ELSE stmt -> full_branch_stmt
+    | KW_IF condition KW_THEN stmt -> half_branch_stmt
     | KW_VAR symbol COLON var_type -> var_decl_stmt
     | KW_SET symbol KW_ADD symbol -> set_add_stmt
     | KW_SET symbol KW_DEL symbol -> set_del_stmt
+    | symbol COLON stmt -> labelled_stmt
 
 enum_entry: IDENTIFIER
 enum_entries: enum_entry*

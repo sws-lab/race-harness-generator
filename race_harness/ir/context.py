@@ -2,9 +2,8 @@ import io
 from typing import Optional, Iterable
 from race_harness.error import RHError
 from race_harness.ir.ref import RHRef
-from race_harness.ir.operation import RHOperation
 from race_harness.ir.entities.entity import RHEntity
-from race_harness.ir.entities import RHSymbol, RHFixedSet, RHProtocol, RHInstance, RHInstruction, RHEffectBlock, RHPredicateBlock, RHProcess, RHModule, RHScope, RHSet
+from race_harness.ir.entities import RHSymbol, RHFixedSet, RHProtocol, RHInstance, RHEffectBlock, RHProcess, RHModule, RHSet, RHPredicate, RHPredicateOp, RHOperation
 
 class RHContext:
     def __init__(self):
@@ -38,34 +37,23 @@ class RHContext:
         self._add_entity(instance)
         return instance
     
-    def new_predicate_block(self) -> RHPredicateBlock:
-        block = RHPredicateBlock(self._new_ref())
-        self._add_entity(block)
-        return block
-    
     def new_effect_block(self) -> RHEffectBlock:
         block = RHEffectBlock(self._new_ref())
         self._add_entity(block)
         return block
     
-    def new_instruction(self, block: RHRef, operation: RHOperation) -> RHInstruction:
-        instruction = RHInstruction(self._new_ref(), operation)
-        if instruction.is_effect:
-            block = self[block].to_effect_block()
-        else:
-            block = self[block].to_predicate_block()
-        block.add_instruction(instruction)
+    def add_operation(self, block: RHRef, operation: RHOperation):
+        self[block].to_effect_block().add_operation(operation)
+
+    def new_predicate(self, predicate_op: RHPredicateOp) -> RHPredicate:
+        predicate = RHPredicate(self._new_ref(), predicate_op)
+        self._add_entity(predicate)
+        return predicate
     
     def new_process(self, proto: RHRef, entry_block: RHRef) -> RHProcess:
         proc = RHProcess(self._new_ref(), self[proto], self[entry_block])
         self._add_entity(proc)
         return proc
-    
-    def new_scope(self, parent: Optional[RHRef]) -> 'RHScope':
-        parent = self[parent].to_scope() if parent else None
-        scope = RHScope(self._new_ref(), parent)
-        self._add_entity(scope)
-        return scope
     
     def new_module(self, processes: Iterable[RHRef], instances: Iterable[RHRef]) -> RHModule:
         processes = (

@@ -3,9 +3,8 @@ from .symbol import RHSymbol
 from .fixed_set import RHFixedSet
 from .protocol import RHProtocol
 from .instance import RHInstance
-from .instruction import RHInstruction
-from .block import RHEffectBlock, RHPredicateBlock
-from .scope import RHScope
+from .predicate import RHPredicateOp, RHPredicate, RHNondetPred, RHConjunctionPred, RHReceivalPred, RHSetEmptyPred, RHSetHasPred
+from .block import RHEffectBlock, RHOperation, RHSetDelOp, RHSetAddOp, RHExternalActionOp, RHTransmissionOp
 from .module import RHModule
 from .process import RHProcess
 from .set import RHSet

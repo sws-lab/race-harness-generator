@@ -1,36 +1,37 @@
-enum msg {
+enum cltmsg {
     req_conn
     disconnect
+}
+
+enum drvmsg {
     grant
     loaded
     unload
 }
 
-proc pclient in msg out msg {
-    loop alive branch recv loaded then {
+proc pclient in drvmsg out cltmsg {
+alive:
+    loop if recv loaded then {
         send req_conn driver
-        branch {
-            recv grant then {
-                do acquire_conn
-                do use_conn
-                do release_conn
-                send disconnect driver
-            }
-            recv unload then continue alive
-        }
+        if recv grant then {
+            do acquire_conn
+            do use_conn
+            do release_conn
+            send disconnect driver
+        } else if recv unload then continue alive
     }
 }
 
-proc pdriver {
+proc pdriver in cltmsg out drvmsg {
     var active_clients: set clients
-    loop alive {
+alive:
+    loop {
         do load
         send loaded clients
-        loop loaded branch {
-            recv req_conn from client then set active_clients add client
-            recv disconnect from client then set active_clients del client
-            set active_clients empty then break loaded
-        }
+loaded:
+        loop if recv req_conn from client then set active_clients add client
+            else if recv disconnect from client then set active_clients del client
+            else if set active_clients empty then break loaded
         send unload clients
         do unload
     }
