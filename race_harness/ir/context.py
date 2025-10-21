@@ -3,7 +3,7 @@ from typing import Optional, Iterable
 from race_harness.error import RHError
 from race_harness.ir.ref import RHRef
 from race_harness.ir.entities.entity import RHEntity
-from race_harness.ir.entities import RHSymbol, RHFixedSet, RHProtocol, RHInstance, RHEffectBlock, RHProcess, RHModule, RHSet, RHPredicate, RHPredicateOp, RHOperation
+from race_harness.ir.entities import RHSymbol, RHFixedSet, RHProtocol, RHInstance, RHEffectBlock, RHProcess, RHModule, RHSet, RHPredicate, RHPredicateOp, RHOperation, RHControlFlow
 
 class RHContext:
     def __init__(self):
@@ -50,10 +50,15 @@ class RHContext:
         self._add_entity(predicate)
         return predicate
     
-    def new_process(self, proto: RHRef, entry_block: RHRef) -> RHProcess:
-        proc = RHProcess(self._new_ref(), self[proto], self[entry_block])
+    def new_process(self, proto: RHRef, entry_block: RHRef, control_flow: RHRef) -> RHProcess:
+        proc = RHProcess(self._new_ref(), self[proto].to_protocol(), self[entry_block].to_effect_block(), self[control_flow].to_control_flow())
         self._add_entity(proc)
         return proc
+    
+    def new_control_flow(self) -> RHControlFlow:
+        control_flow = RHControlFlow(self._new_ref())
+        self._add_entity(control_flow)
+        return control_flow
     
     def new_module(self, processes: Iterable[RHRef], instances: Iterable[RHRef]) -> RHModule:
         processes = (
@@ -72,6 +77,11 @@ class RHContext:
         set = RHSet(self._new_ref(), name, self._check_ref(domain))
         self._add_entity(set)
         return set
+    
+    def drop_entity(self, ref: RHRef):
+        if ref not in self._entities:
+            raise RHError(f'Reference {ref} does not belong to the context')
+        del self._entities[ref]
     
     def get(self, ref: RHRef) -> Optional[RHEntity]:
         return self._entities.get(ref)

@@ -49,6 +49,9 @@ class RHEntity(abc.ABC):
     def as_set(self) -> 'RHSet':
         return None
     
+    def as_control_flow(self) -> 'RHControlFlow':
+        return None
+    
     def _coerce(self, value):
         if value is None:
             raise RHError('Entity type mismatch')

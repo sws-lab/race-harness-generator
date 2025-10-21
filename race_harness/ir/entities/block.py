@@ -1,6 +1,5 @@
 import io
 import abc
-import dataclasses
 from typing import List, Iterable, Optional, Union
 from race_harness.util.coerce import with_coercion_methods
 from race_harness.error import RHError
@@ -98,23 +97,11 @@ class RHSetDelOp(RHOperation):
     
     def __str__(self):
         return f'set.del {self.target_set} {self.value}'
-    
-
-@dataclasses.dataclass
-class RHUnconditionalBranch:
-    target_block: 'RHEffectBlock'
-
-@dataclasses.dataclass
-class RHConditionalBranch:
-    target_block: 'RHEffectBlock'
-    alternative_block: Optional['RHEffectBlock']
-    condition: 'RHPredicate'
 
 class RHEffectBlock(RHEntity):
     def __init__(self, ref: RHRef):
         super().__init__(ref)
         self._items = list()
-        self._successor = None
 
     def as_effect_block(self):
         return self
@@ -122,40 +109,20 @@ class RHEffectBlock(RHEntity):
     def add_operation(self, operation: RHOperation):
         self._items.append(operation)
 
-    def set_unconditional_successor(self, successor: 'RHEffectBlock'):
-        if self._successor is not None:
-            if isinstance(self._successor, RHConditionalBranch) and self._successor.alternative_block is None:
-                self._successor.alternative_block = successor
-                return
-            raise RHError(f'Block {self.ref} already has been assigned a terminator')
-        self._successor = RHUnconditionalBranch(successor)
-
-    def set_conditional_successor(self, target: 'RHEffectBlock', alternative: Optional['RHEffectBlock'], predicate: 'RHPredicate'):
-        if self._successor is not None:
-            raise RHError(f'Block {self.ref} already has been assigned a terminator')
-        self._successor = RHConditionalBranch(target, alternative, predicate)
-
     @property
     def content(self) -> List[RHOperation]:
         return self._items
     
     @property
-    def successor(self) -> Optional[Union[RHUnconditionalBranch, RHConditionalBranch]]:
-        return self._successor
+    def is_empty(self) -> bool:
+        return len(self._items) == 0
     
     def __str__(self):
         out = io.StringIO()
-        if self.content or self.successor:
-            out.write('block {\n')
+        out.write('block')
+        if self.content:
+            out.write(' {\n')
             for op in self.content:
                 out.write(f'  {op}\n')
-            if isinstance(self.successor, RHUnconditionalBranch):
-                out.write(f'  jmp {self.successor.target_block.ref}\n')
-            elif isinstance(self.successor, RHConditionalBranch) and self.successor.alternative_block:
-                out.write(f'  branch {self.successor.condition.ref} {self.successor.target_block.ref} {self.successor.alternative_block.ref}\n')
-            elif isinstance(self.successor, RHConditionalBranch) and self.successor.alternative_block:
-                out.write(f'  branch {self.successor.condition.ref} {self.successor.target_block.ref}\n')
             out.write('}')
-        else:
-            out.write(f'block')
         return out.getvalue()
