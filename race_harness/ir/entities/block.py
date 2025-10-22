@@ -70,6 +70,9 @@ class RHSetAddOp(RHOperation):
         self._target_set = target_set
         self._value = value
 
+    def as_set_add(self):
+        return self
+
     @property
     def target_set(self) -> RHRef:
         return self._target_set
@@ -86,6 +89,9 @@ class RHSetDelOp(RHOperation):
         super().__init__()
         self._target_set = target_set
         self._value = value
+
+    def as_set_del(self):
+        return self
 
     @property
     def target_set(self) -> RHRef:

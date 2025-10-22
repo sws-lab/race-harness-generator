@@ -1,0 +1,49 @@
+import abc
+from race_harness.util.coerce import with_coercion_methods
+from race_harness.state_ir.state import SlotID
+
+@with_coercion_methods
+class STInstruction(abc.ABC):
+    def __init__(self):
+        super().__init__()
+
+    def as_external_action(self) -> 'STExternalActionInstruction':
+        return None
+    
+    def as_set_bool(self) -> 'STSetBoolInstruction':
+        return None
+
+class STExternalActionInstruction(STInstruction):
+    def __init__(self, action: str):
+        super().__init__()
+        self._action = action
+
+    def as_external_action(self):
+        return self
+
+    @property
+    def action(self) -> str:
+        return self._action
+    
+    def __str__(self):
+        return f'do {self.action}'
+
+class STSetBoolInstruction(STInstruction):
+    def __init__(self, slot_id: SlotID, value: bool):
+        super().__init__()
+        self._slot_id = slot_id
+        self._value = value
+
+    def as_set_bool(self):
+        return self
+
+    @property
+    def slot_id(self) -> SlotID:
+        return self._slot_id
+    
+    @property
+    def value(self) -> bool:
+        return self._value
+    
+    def __str__(self):
+        return f'setbool {self.slot_id} {self.value}'

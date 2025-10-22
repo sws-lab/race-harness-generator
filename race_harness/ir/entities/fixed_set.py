@@ -14,6 +14,9 @@ class RHFixedSet(RHEntity):
     def items(self) -> Iterable[RHRef]:
         yield from self._items
 
+    def has_item(self, item: RHRef) -> bool:
+        return item in self._items
+
     def __iter__(self) -> Iterable[RHRef]:
         yield from self.items
 

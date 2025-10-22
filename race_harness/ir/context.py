@@ -33,7 +33,7 @@ class RHContext:
         return decl
     
     def new_instance(self, name: str, proto: RHRef) -> RHInstance:
-        instance = RHInstance(self._new_ref(), name, self._check_ref(proto))
+        instance = RHInstance(self._new_ref(), name, self[proto].to_protocol())
         self._add_entity(instance)
         return instance
     
