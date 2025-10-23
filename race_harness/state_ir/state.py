@@ -6,7 +6,7 @@ from typing import Optional, Union
 from race_harness.error import RHError
 from race_harness.util.coerce import with_coercion_methods
 
-class SlotID:
+class STSlotID:
     def __init__(self, identifier: int):
         self._identifier = identifier
 
@@ -15,7 +15,7 @@ class SlotID:
         return self._identifier
     
     def __eq__(self, value):
-        return isinstance(value, SlotID) and value.identifier == self.identifier
+        return isinstance(value, STSlotID) and value.identifier == self.identifier
     
     def __hash__(self):
         return hash(self._identifier)
@@ -24,24 +24,24 @@ class SlotID:
         return f'${self.identifier}'
 
 @with_coercion_methods
-class Slot(abc.ABC):
-    def __init__(self, identifier: SlotID):
+class STSlot(abc.ABC):
+    def __init__(self, identifier: STSlotID):
         super().__init__()
         self._identifier = identifier
 
     @property
-    def identifier(self) -> SlotID:
+    def identifier(self) -> STSlotID:
         return self._identifier
     
-    def as_boolean(self) -> 'BooleanSlot':
+    def as_boolean(self) -> 'STBooleanSlot':
         return None
     
     @property
     @abc.abstractmethod
     def initial_value(self) -> Union[bool]: pass
 
-class BooleanSlot(Slot):
-    def __init__(self, identifier: SlotID, initial_value: bool):
+class STBooleanSlot(STSlot):
+    def __init__(self, identifier: STSlotID, initial_value: bool):
         super().__init__(identifier)
         self._init_value = initial_value
 
@@ -55,19 +55,19 @@ class BooleanSlot(Slot):
     def __str__(self):
         return f'{self.identifier}: bool = {self.initial_value}'
 
-class SlotSet:
+class STState:
     def __init__(self):
         self._slots = dict()
 
-    def new_boolean_slot(self, init_value: bool) -> SlotID:
-        slot_id = SlotID(len(self._slots))
-        self._slots[slot_id] = BooleanSlot(slot_id, init_value)
+    def new_boolean_slot(self, init_value: bool) -> STSlotID:
+        slot_id = STSlotID(len(self._slots))
+        self._slots[slot_id] = STBooleanSlot(slot_id, init_value)
         return slot_id
     
-    def get_slot(self, identifier: SlotID) -> Optional[Slot]:
+    def get_slot(self, identifier: STSlotID) -> Optional[STSlot]:
         return self._slots.get(identifier, None)
     
-    def __getitem__(self, identifier: SlotID) -> Slot:
+    def __getitem__(self, identifier: STSlotID) -> STSlot:
         decl = self.get_slot(identifier)
         if decl is None:
             raise RHError(f'Unable to find slot {identifier}')

@@ -19,3 +19,6 @@ class RHRef:
     
     def __str__(self):
         return f'%{self.uid}'
+    
+    def __repr__(self):
+        return str(self)

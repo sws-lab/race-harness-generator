@@ -1,6 +1,6 @@
 import abc
 from race_harness.util.coerce import with_coercion_methods
-from race_harness.state_ir.state import SlotID
+from race_harness.state_ir.state import STSlotID
 
 @with_coercion_methods
 class STInstruction(abc.ABC):
@@ -29,7 +29,7 @@ class STExternalActionInstruction(STInstruction):
         return f'do {self.action}'
 
 class STSetBoolInstruction(STInstruction):
-    def __init__(self, slot_id: SlotID, value: bool):
+    def __init__(self, slot_id: STSlotID, value: bool):
         super().__init__()
         self._slot_id = slot_id
         self._value = value
@@ -38,7 +38,7 @@ class STSetBoolInstruction(STInstruction):
         return self
 
     @property
-    def slot_id(self) -> SlotID:
+    def slot_id(self) -> STSlotID:
         return self._slot_id
     
     @property

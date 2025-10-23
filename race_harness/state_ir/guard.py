@@ -1,5 +1,5 @@
 import abc
-from race_harness.state_ir.state import SlotID
+from race_harness.state_ir.state import STSlotID
 from race_harness.util.coerce import with_coercion_methods
 
 @with_coercion_methods
@@ -11,7 +11,7 @@ class STGuardCondition(abc.ABC):
         return None
     
 class STBoolGuardCondition(STGuardCondition):
-    def __init__(self, slot_id: SlotID, value: bool):
+    def __init__(self, slot_id: STSlotID, value: bool):
         super().__init__()
         self._slot_id = slot_id
         self._value = value
@@ -20,7 +20,7 @@ class STBoolGuardCondition(STGuardCondition):
         return self
 
     @property
-    def slot_id(self) -> SlotID:
+    def slot_id(self) -> STSlotID:
         return self._slot_id
     
     @property

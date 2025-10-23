@@ -38,10 +38,11 @@ class STTransitionID:
         return f'@{self.transition_id}'
 
 class STTransition:
-    def __init__(self, transition_id: STTransitionID, source_node_id: STNodeID, target_node_id: STNodeID):
+    def __init__(self, transition_id: STTransitionID, source_node_id: STNodeID, target_node_id: STNodeID, invert_gurard: bool):
         self._transition_id = transition_id
         self._source_node_id = source_node_id
         self._target_node_id = target_node_id
+        self._invert_guard = invert_gurard
         self._guards = list()
         self._instructions = list()
 
@@ -56,6 +57,10 @@ class STTransition:
     @property
     def target_node_id(self) -> STNodeID:
         return self._target_node_id
+    
+    @property
+    def invert_guard(self) -> bool:
+        return self._invert_guard
 
     @property
     def guards(self) -> Iterable[STGuardCondition]:
@@ -75,7 +80,10 @@ class STTransition:
         out = io.StringIO()
         out.write(f'({self.source_node_id} -> {self.target_node_id})')
         if self._guards:
-            out.write(f' if (\n')
+            if self.invert_guard:
+                out.write(f' if !(\n')
+            else:
+                out.write(f' if (\n')
             for guard in self.guards:
                 out.write(f'  {guard}\n')
             out.write(')')

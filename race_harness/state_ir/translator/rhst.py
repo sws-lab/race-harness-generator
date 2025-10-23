@@ -1,7 +1,7 @@
 import dataclasses
 from typing import Dict, List, Tuple, Optional, Iterable
-from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef
-from race_harness.state_ir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, SlotID
+from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef, RHSet
+from race_harness.state_ir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, STSlotID, STTransition, STBoolGuardCondition
 
 @dataclasses.dataclass
 class BlockContext:
@@ -21,8 +21,32 @@ class TranslatorContext:
     protocol_impl: Dict[RHProtocol, RHProcess]
     instance_context: Dict[RHInstance, InstanceContext]
     blocks: Dict[Tuple[RHInstance, RHEffectBlock], BlockContext]
-    message_slots: Dict[Tuple[RHRef, RHRef], SlotID]
-    set_element_slots: Dict[Tuple[RHRef, RHRef, RHRef], SlotID]
+    message_slots: Dict[Tuple[RHRef, RHRef, RHRef], STSlotID]
+    set_element_slots: Dict[Tuple[RHRef, RHRef, RHRef], STSlotID]
+
+@dataclasses.dataclass
+class BindingsContainer:
+    bindings: Dict[RHRef, RHRef]
+
+    def __hash__(self):
+        res = 0
+        for key, value in self.bindings.items():
+            res = res * 31 + hash(key) * 17 + hash(value)
+        return res
+    
+    def __eq__(self, other):
+        if not isinstance(other, BindingsContainer):
+            return False
+        
+        for key, value in self.bindings.items():
+            if key not in other.bindings or value != other.bindings[key]:
+                return False
+            
+        for key, value in other.bindings.items():
+            if key not in self.bindings or value != self.bindings[key]:
+                return False
+        
+        return True
 
 class RHSTTranslator:
     def __init__(self, context: RHContext, st_module: STModule):
@@ -85,47 +109,63 @@ class RHSTTranslator:
                 block_queue.append((block_ctx.node, True, edge.condition, edge.alternative))
 
     def translate_block(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, block_ctx: BlockContext, pred_node: STNodeID, neg_condition: bool, condition: Optional[RHPredicate]):
-        if condition is not None:
-            for variant in self._enumerate_transition_variants(trans_ctx, condition):
-                transition = self._st_module.new_transition(pred_node, block_ctx.node)
+        for bindings in self._enumerate_condition_bindings(trans_ctx, condition):
+            transition = self._st_module.new_transition(pred_node, block_ctx.node, neg_condition)
+            if condition is not None:
+                self.translate_condition(trans_ctx, instance_ctx, transition, condition, bindings)
 
-                for oper in block_ctx.block.content:
-                    if oper.as_external_action():
-                        action = oper.as_external_action().external_action
-                        transition.add_instruction(STExternalActionInstruction(action))
-                    elif oper.as_transmission():
-                        dsts = oper.as_transmission().destinations
-                        msg = oper.as_transmission().message
-                        for dst in dsts:
-                            dst_entity = self._context[dst]
-                            if dst_entity.as_instance():
-                                msg_slot = self._get_msg_slot(trans_ctx, dst_entity.ref, msg)
+            for oper in block_ctx.block.content:
+                if ext_action := oper.as_external_action():
+                    transition.add_instruction(STExternalActionInstruction(ext_action.external_action))
+                elif trans := oper.as_transmission():
+                    for dst in trans.destinations:
+                        dst_entity = self._context[dst]
+                        if dst_entity.as_instance():
+                            msg_slot = self._get_msg_slot(trans_ctx, instance_ctx.instance.ref, dst_entity.ref, trans.message)
+                            transition.add_instruction(STSetBoolInstruction(msg_slot, True))
+                        elif dst_entity.as_fixed_set():
+                            for subdst in dst_entity.as_fixed_set().items:
+                                msg_slot = self._get_msg_slot(trans_ctx, instance_ctx.instance.ref, subdst, trans.message)
                                 transition.add_instruction(STSetBoolInstruction(msg_slot, True))
-                            elif dst_entity.as_fixed_set():
-                                for subdst in dst_entity.as_fixed_set().items:
-                                    msg_slot = self._get_msg_slot(trans_ctx, subdst, msg)
-                                    transition.add_instruction(STSetBoolInstruction(msg_slot, True))
-                    elif oper.as_set_add():
-                        target_set = oper.as_set_add().target_set
-                        value = oper.as_set_add().value
-                        value = variant.get(value, value)
-                        elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, target_set, value)
-                        transition.add_instruction(STSetBoolInstruction(elt_slot, True))
-                    elif oper.as_set_del():
-                        target_set = oper.as_set_del().target_set
-                        value = oper.as_set_del().value
-                        value = variant.get(value, value)
-                        elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, target_set, value)
-                        transition.add_instruction(STSetBoolInstruction(elt_slot, False))
+                elif set_add := oper.as_set_add():
+                    _, value = bindings.get(set_add.value, (None, set_add.value))
+                    elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, set_add.target_set, value)
+                    transition.add_instruction(STSetBoolInstruction(elt_slot, True))
+                elif set_del := oper.as_set_del():
+                    _, value = bindings.get(set_del.value, (None, set_del.value))
+                    elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, set_del.target_set, value)
+                    transition.add_instruction(STSetBoolInstruction(elt_slot, False))
 
-    def _get_msg_slot(self, trans_ctx: TranslatorContext, receiver_ref: RHRef, message_ref: RHRef) -> SlotID:
-        slot_id = trans_ctx.message_slots.get((receiver_ref, message_ref), None)
+    def translate_condition(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, transition: STTransition, condition: RHPredicate, bindings: Dict[RHRef, Tuple[RHRef, RHRef]]):
+        if condition.operation.as_nondet():
+            pass
+        elif set_empty := condition.operation.as_set_empty():
+            set: RHSet = self._context[set_empty.target_set].to_set()
+            for elt in self._context[set.domain].to_fixed_set():
+                slot_id = self._get_set_element_slot(trans_ctx, instance_ctx, set_empty.target_set, elt)
+                transition.add_guard(STBoolGuardCondition(slot_id, False))
+        elif set_has := condition.operation.as_set_has():
+            value = bindings.get(set_has.value, set_has.value)
+            slot_id = self._get_set_element_slot(trans_ctx, instance_ctx, set_has.target_set, value)
+            transition.add_guard(STBoolGuardCondition(slot_id, True))
+        elif condition.operation.as_receival():
+            if condition.ref in bindings:
+                msg, sender = bindings[condition.ref]
+                slot_id = self._get_msg_slot(trans_ctx, sender, instance_ctx.instance.ref, msg)
+                transition.add_guard(STBoolGuardCondition(slot_id, True))
+        elif conjunction := condition.operation.as_conjunction():
+            for conj in conjunction.conjuncts:
+                self.translate_condition(trans_ctx, instance_ctx, transition, self._context[conj].to_predicate(), bindings)
+
+    def _get_msg_slot(self, trans_ctx: TranslatorContext, sender_ref: RHRef, receiver_ref: RHRef, message_ref: RHRef) -> STSlotID:
+        key = (sender_ref, receiver_ref, message_ref)
+        slot_id = trans_ctx.message_slots.get(key, None)
         if slot_id is None:
             slot_id = self._st_module.state.new_boolean_slot(False)
-            trans_ctx.message_slots[(receiver_ref, message_ref)] = slot_id
+            trans_ctx.message_slots[key] = slot_id
         return slot_id
     
-    def _get_set_element_slot(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, set_ref: RHRef, element_ref: RHRef) -> SlotID:
+    def _get_set_element_slot(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, set_ref: RHRef, element_ref: RHRef) -> STSlotID:
         key = (instance_ctx.instance.ref, set_ref, element_ref)
         slot_id = trans_ctx.set_element_slots.get(key, None)
         if slot_id is None:
@@ -133,42 +173,57 @@ class RHSTTranslator:
             trans_ctx.set_element_slots[key] = slot_id
         return slot_id
     
-    def _enumerate_transition_variants(self, trans_ctx: TranslatorContext, condition: RHPredicate):
-        if condition.operation.as_nondet():
-            pass
-        elif condition.operation.as_receival():
-            for msg in condition.operation.as_receival().messages:
-                for process in self._enum_senders(trans_ctx, msg):
-                    for instance_ctx in trans_ctx.instance_context.values():
-                        if instance_ctx.process.ref == process.ref:
-                            yield {
-                                condition.ref: instance_ctx.instance.ref
-                            }
-        elif condition.operation.as_set_empty():
-            pass
-        elif condition.operation.as_set_has():
-            pass
-        elif condition.operation.as_conjunction():
-            yield from self._enum_transition_variants_conj(trans_ctx, condition.operation.as_conjunction().conjuncts)
-        yield dict()
-
-    def _enum_transition_variants_conj(self, trans_ctx: TranslatorContext, conjuncts: List[RHRef]):
-        if not conjuncts:
-            yield from ()
-
-        conj = conjuncts[0]
-        conj_tail = conjuncts[1:]
+    def _enumerate_condition_bindings(self, trans_ctx: TranslatorContext, condition: Optional[RHPredicate]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+        if condition is None:
+            yield dict()
+            return
         
-        for variant in self._enumerate_transition_variants(trans_ctx, self._context[conj].as_predicate()):
-            for subvariant in self._enum_transition_variants_conj(trans_ctx, conj_tail[1:]):
+        visited = set()
+        for binding in self._enumerate_condition_bindings_impl(trans_ctx, condition):
+            container = BindingsContainer(binding)
+            if container not in visited:
+                yield binding
+                visited.add(container)
+        if not visited:
+            yield dict()
+    
+    def _enumerate_condition_bindings_impl(self, trans_ctx: TranslatorContext, condition: RHPredicate) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+        if condition.operation.as_receival():
+            for msg in condition.operation.as_receival().messages:
+                for instance in self._enum_sender_instances(trans_ctx, msg):
+                    yield {
+                        condition.ref: (msg, instance.ref)
+                    }
+        elif condition.operation.as_conjunction():
+            yield from self._enum_conjunction_bindings(trans_ctx, condition.operation.as_conjunction().conjuncts)
+
+    def _enum_conjunction_bindings(self, trans_ctx: TranslatorContext, conjuncts: List[RHRef]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+        if not conjuncts:
+            return
+
+        conj_head = conjuncts[0]
+        conj_tail = conjuncts[1:]
+
+        if not conj_tail:
+            yield from self._enumerate_condition_bindings(trans_ctx, self._context[conj_head].to_predicate())
+            return
+        
+        for variant in self._enumerate_condition_bindings(trans_ctx, self._context[conj_head].to_predicate()):
+            for subvariant in self._enum_conjunction_bindings(trans_ctx, conj_tail):
                 yield {
-                    *variant,
-                    *subvariant
+                    **variant,
+                    **subvariant
                 }
+
+    def _enum_sender_instances(self, trans_ctx: TranslatorContext, msg: RHRef) -> Iterable[RHInstance]:
+        for process in self._enum_senders(trans_ctx, msg):
+            for instance_ctx in trans_ctx.instance_context.values():
+                if instance_ctx.process.ref == process.ref:
+                    yield instance_ctx.instance
 
     def _enum_senders(self, trans_ctx: TranslatorContext, msg: RHRef) -> Iterable[RHProcess]:
         for process in trans_ctx.module.processes:
             if process.protocol.out_protocol is not None:
                 out_proto = self._context[process.protocol.out_protocol].to_fixed_set()
-                if out_proto.has_item(msg):
+                if msg in out_proto:
                     yield process

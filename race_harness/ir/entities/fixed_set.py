@@ -5,7 +5,7 @@ from race_harness.ir.entities.entity import RHEntity
 class RHFixedSet(RHEntity):
     def __init__(self, ref: RHRef, label: str, items: Iterable[RHRef]):
         super().__init__(ref, label)
-        self._items = list(items)
+        self._items = set(items)
 
     def as_fixed_set(self):
         return self
@@ -19,6 +19,9 @@ class RHFixedSet(RHEntity):
 
     def __iter__(self) -> Iterable[RHRef]:
         yield from self.items
+
+    def __contains__(self, value):
+        return value in self._items
 
     def __str__(self):
         return 'fixedset {} {{{}}}'.format(
