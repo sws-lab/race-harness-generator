@@ -5,6 +5,7 @@ LIBPINS_STIR_SO := $(PINS_STIR_DIR)/libpins-stir.so
 
 LTSMIN_DIR?=
 
+C_SOURCE := $(shell find pins-stir -name "*.c" -or -name "*.h")
 PYTHON_SOURCE := $(shell find race_harness/ -name "*.py")
 EXAMPLES_SOURCE := $(wildcard $(EXAMPLES_DIR)/*.rh)
 EXAMPLES_STIR := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.stir,$(EXAMPLES_SOURCE))
@@ -26,7 +27,7 @@ $(OUT_DIR)/%.stir: $(EXAMPLES_DIR)/%.rh $(PYTHON_SOURCE)
 $(OUT_DIR)/%.gcf: $(OUT_DIR)/%.stir $(LIBPINS_STIR_SO)
 	PINS_STIR_MODEL=$< $(LTSMIN_DIR)/bin/pins2lts-seq $(LIBPINS_STIR_SO) $@
 
-$(LIBPINS_STIR_SO):
+$(LIBPINS_STIR_SO): $(C_SOURCE)
 	cd pins-stir && $(MAKE) all
 
 .PHONY: all all-stir clean

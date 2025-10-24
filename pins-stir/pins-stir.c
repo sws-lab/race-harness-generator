@@ -89,12 +89,47 @@ static struct stir_model STIR_MODEL = {0};
 
 static int next_state(model_t model, int group, int *src, TransitionCB cb, void *user_context) {
     (void) model;
-    (void) group;
-    (void) src;
-    (void) cb;
-    (void) user_context;
 
-    return 0;
+    static _Thread_local int *dst = NULL;
+    if (dst == NULL) {
+        dst = malloc(sizeof(int) * STIR_MODEL.state.num_of_slots);
+        if (dst == NULL) {
+            stir_fatal("failed to allocate memory");
+        }
+    }
+
+    const struct stir_model_transition *transition = &STIR_MODEL.transitions[group];
+
+    if (src[transition->component_slot_id] != transition->src_node) {
+        return 0;
+    }
+    for (size_t i = 0; i < transition->num_of_guards; i++) {
+        switch (transition->guards[i].type) {
+            case STIR_MODEL_GUARD_BOOL:
+                if (src[transition->guards[i].bool_guard.slot_id] != transition->guards[i].bool_guard.value) {
+                    return 0;
+                }
+                break;
+        }
+    }
+
+    memcpy(dst, src, sizeof(int) * STIR_MODEL.state.num_of_slots);
+    dst[transition->component_slot_id] = transition->dst_node;
+    for (size_t i = 0; i <transition->num_of_instr; i++) {
+        switch (transition->instructions[i].type) {
+            case STIR_MODEL_INSTR_SET_BOOL:
+                dst[transition->instructions[i].set_bool.slot_id] = transition->instructions[i].set_bool.value;
+                break;
+
+            case STIR_MODEL_INSTR_DO:
+                // Intentionally left blank
+                break;
+        }
+    }
+
+    transition_info_t ti = GB_TI(NULL, group);
+    cb(user_context, &ti, dst, NULL);
+    return 1;
 }
 
 static void init_pins_from_stir(const struct stir_model *stir_model, model_t model) {
