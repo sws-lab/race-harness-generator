@@ -1,6 +1,6 @@
 import abc
 from race_harness.util.coerce import with_coercion_methods
-from race_harness.state_ir.state import STSlotID
+from race_harness.stir.state import STSlotID
 
 @with_coercion_methods
 class STInstruction(abc.ABC):

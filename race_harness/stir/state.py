@@ -1,9 +1,8 @@
 import io
-import enum
 import abc
-import dataclasses
-from typing import Optional, Union
+from typing import Optional, Union, Iterable
 from race_harness.error import RHError
+from race_harness.stir.node import STNodeID
 from race_harness.util.coerce import with_coercion_methods
 
 class STSlotID:
@@ -33,12 +32,15 @@ class STSlot(abc.ABC):
     def identifier(self) -> STSlotID:
         return self._identifier
     
-    def as_boolean(self) -> 'STBooleanSlot':
+    def as_boolean(self) -> Optional['STBooleanSlot']:
+        return None
+    
+    def as_node(self) -> Optional['STNodeID']:
         return None
     
     @property
     @abc.abstractmethod
-    def initial_value(self) -> Union[bool]: pass
+    def initial_value(self) -> Union[bool, int]: pass
 
 class STBooleanSlot(STSlot):
     def __init__(self, identifier: STSlotID, initial_value: bool):
@@ -54,6 +56,21 @@ class STBooleanSlot(STSlot):
     
     def __str__(self):
         return f'{self.identifier}: bool = {self.initial_value}'
+    
+class STNodeSlot(STSlot):
+    def __init__(self, identifier: STSlotID, initial_value: STNodeID):
+        super().__init__(identifier)
+        self._init_value = initial_value
+
+    def as_node(self):
+        return self
+
+    @property
+    def initial_value(self) -> STNodeID:
+        return self._init_value
+    
+    def __str__(self):
+        return f'{self.identifier}: node = {self.initial_value}'
 
 class STState:
     def __init__(self):
@@ -64,6 +81,11 @@ class STState:
         self._slots[slot_id] = STBooleanSlot(slot_id, init_value)
         return slot_id
     
+    def new_node_slot(self, init_value: STNodeID) -> STSlotID:
+        slot_id = STSlotID(len(self._slots))
+        self._slots[slot_id] = STNodeSlot(slot_id, init_value)
+        return slot_id
+    
     def get_slot(self, identifier: STSlotID) -> Optional[STSlot]:
         return self._slots.get(identifier, None)
     
@@ -72,6 +94,12 @@ class STState:
         if decl is None:
             raise RHError(f'Unable to find slot {identifier}')
         return decl
+    
+    def __len__(self):
+        return len(self._slots)
+    
+    def __iter__(self) -> Iterable[STSlot]:
+        yield from self._slots.values()
     
     def __str__(self):
         out = io.StringIO()

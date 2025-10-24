@@ -1,5 +1,5 @@
 import abc
-from race_harness.state_ir.state import STSlotID
+from race_harness.stir.state import STSlotID
 from race_harness.util.coerce import with_coercion_methods
 
 @with_coercion_methods

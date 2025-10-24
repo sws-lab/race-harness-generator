@@ -1,7 +1,8 @@
 import io
 from typing import Iterable, Optional
-from race_harness.state_ir.state import STState
-from race_harness.state_ir.transition import STTransition, STTransitionID, STNodeID
+from race_harness.stir.state import STState, STSlotID
+from race_harness.stir.node import STNodeID
+from race_harness.stir.transition import STTransition, STTransitionID
 from race_harness.error import RHError
 
 class STModule:
@@ -15,9 +16,9 @@ class STModule:
         self._nodes.add(node)
         return node
 
-    def new_transition(self, source_node: STNodeID, target_node: STNodeID, invert_guard: bool) -> STTransition:
+    def new_transition(self, node_slot: STSlotID, source_node: STNodeID, target_node: STNodeID, invert_guard: bool) -> STTransition:
         trans_id = STTransitionID(len(self._transitions))
-        trans = STTransition(trans_id, source_node, target_node, invert_guard)
+        trans = STTransition(trans_id, node_slot, source_node, target_node, invert_guard)
         self._transitions[trans_id] = trans
         return trans
     
@@ -41,6 +42,12 @@ class STModule:
         if transition is None:
             raise RHError(f'Unable to find transition {transition_id} in module')
         return transition
+    
+    def __len__(self) -> int:
+        return len(self._transitions)
+    
+    def __iter__(self) -> Iterable[STTransition]:
+        yield from self._transitions.values()
     
     def __str__(self):
         out = io.StringIO()

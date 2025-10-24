@@ -1,7 +1,7 @@
 import dataclasses
 from typing import Dict, List, Tuple, Optional, Iterable
 from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef, RHSet
-from race_harness.state_ir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, STSlotID, STTransition, STBoolGuardCondition
+from race_harness.stir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, STSlotID, STTransition, STBoolGuardCondition
 
 @dataclasses.dataclass
 class BlockContext:
@@ -14,6 +14,7 @@ class InstanceContext:
     process: RHProcess
     entry_node: STNodeID
     exit_node: STNodeID
+    node_slot: STSlotID
 
 @dataclasses.dataclass
 class TranslatorContext:
@@ -69,11 +70,13 @@ class RHSTTranslator:
         for process in module.processes:
             trans_ctx.protocol_impl[process.protocol] = process
         for instance in module.instances:
+            entry_node = self._st_module.new_node()
             trans_ctx.instance_context[instance] = InstanceContext(
                 instance=instance,
                 process=trans_ctx.protocol_impl[instance.protocol],
-                entry_node=self._st_module.new_node(),
-                exit_node=self._st_module.new_node()
+                entry_node=entry_node,
+                exit_node=self._st_module.new_node(),
+                node_slot=self._st_module.state.new_node_slot(entry_node)
             )
 
         for instance_ctx in trans_ctx.instance_context.values():
@@ -110,7 +113,7 @@ class RHSTTranslator:
 
     def translate_block(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, block_ctx: BlockContext, pred_node: STNodeID, neg_condition: bool, condition: Optional[RHPredicate]):
         for bindings in self._enumerate_condition_bindings(trans_ctx, condition):
-            transition = self._st_module.new_transition(pred_node, block_ctx.node, neg_condition)
+            transition = self._st_module.new_transition(instance_ctx.node_slot, pred_node, block_ctx.node, neg_condition)
             if condition is not None:
                 self.translate_condition(trans_ctx, instance_ctx, transition, condition, bindings)
 
