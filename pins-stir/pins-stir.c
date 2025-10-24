@@ -15,6 +15,13 @@ struct pins_types {
     int bool_type;
 };
 
+static struct stir_model STIR_MODEL = {0};
+static FILE *STIR_STATES_FP = NULL;
+
+static void write_pins_stir_state(const struct stir_model *model, int *state) {
+    fwrite(state, sizeof(int), model->state.num_of_slots, STIR_STATES_FP);
+}
+
 static void init_pins_types_from_stir(const struct stir_model *stir_model, model_t model, struct pins_types *types) {
     types->ltstype = lts_type_create();
     lts_type_set_state_length(types->ltstype, stir_model->state.num_of_slots);
@@ -46,6 +53,7 @@ static void init_pins_state_from_stir(const struct stir_model *stir_model, model
         initial_state[i] = stir_model->state.slots[i].init_value;
     }
 
+    write_pins_stir_state(stir_model, initial_state);
     GBsetInitialState(model, initial_state);
     free(initial_state);
 }
@@ -84,8 +92,6 @@ static void init_pins_dependency_matrix_from_stir(const struct stir_model *stir_
 
     GBsetDMInfo(model, dm_info);
 }
-
-static struct stir_model STIR_MODEL = {0};
 
 static int next_state(model_t model, int group, int *src, TransitionCB cb, void *user_context) {
     (void) model;
@@ -129,6 +135,7 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
 
     transition_info_t ti = GB_TI(NULL, group);
     cb(user_context, &ti, dst, NULL);
+    write_pins_stir_state(&STIR_MODEL, dst);
     return 1;
 }
 
@@ -142,12 +149,38 @@ static void init_pins_from_stir(const struct stir_model *stir_model, model_t mod
     GBsetNextStateLong(model, next_state);
 }
 
+static void exit_cb(model_t model) {
+    (void) model;
+
+    fflush(STIR_STATES_FP);
+    fclose(STIR_STATES_FP);
+    free_stir_model(&STIR_MODEL);
+}
+
+_Noreturn void stir_abort(void) {
+    ltsmin_abort(-1);
+}
+
 void pins_model_init(model_t m) {
+    const char *stir_model_filepath = getenv("PINS_STIR_MODEL");
+    if (stir_model_filepath == NULL) {
+        stir_fatal("expected PINS_STIR_MODEL to contain a valid filepath");
+    }
+
+    const char *stir_output_filepath = getenv("PINS_STIR_OUTPUT");
+    if (stir_output_filepath == NULL) {
+        stir_fatal("expected PINS_STIR_OUTPUT to contain a valid filepath");
+    }
+
+    STIR_STATES_FP = fopen(stir_output_filepath, "wb");
+
     const char *stir_model_text;
     size_t stir_model_text_length;
-    open_stir_model_text(&stir_model_text, &stir_model_text_length);
+    open_stir_model_text(stir_model_filepath, &stir_model_text, &stir_model_text_length);
     load_stir_model(&stir_model_text, &STIR_MODEL);
     close_stir_model_text(stir_model_text, stir_model_text_length);
 
     init_pins_from_stir(&STIR_MODEL, m);
+
+    GBsetExit(m, exit_cb);
 }

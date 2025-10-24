@@ -68,10 +68,12 @@ struct stir_model {
     size_t num_of_transitions;
 };
 
+_Noreturn void stir_abort(void);
+
 _Noreturn void stir_fatal(const char *, ...);
 _Noreturn void stir_perror_fatal(const char *);
 
-void open_stir_model_text(const char **, size_t *);
+void open_stir_model_text(const char *, const char **, size_t *);
 void close_stir_model_text(const char *, size_t);
 
 void load_stir_model(const char **, struct stir_model *);

@@ -8,8 +8,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <ltsmin/dlopen-api.h>
-
 #include "stir.h"
 
 _Noreturn void stir_fatal(const char *fmt, ...) {
@@ -17,21 +15,15 @@ _Noreturn void stir_fatal(const char *fmt, ...) {
     va_start(args, fmt);
     vfprintf(stderr, fmt, args);
     va_end(args);
-    ltsmin_abort(-1);
+    stir_abort();
 }
 
 _Noreturn void stir_perror_fatal(const char *msg) {
     perror(msg);
-    ltsmin_abort(-1);
+    stir_abort();
 }
 
-void open_stir_model_text(const char **content, size_t *length) {
-    const char *stir_model_filepath = getenv("PINS_STIR_MODEL");
-    if (stir_model_filepath == NULL) {
-        stir_fatal("expected PINS_STIR_MODEL to contain a valid filepath");
-    }
-
-
+void open_stir_model_text(const char *stir_model_filepath, const char **content, size_t *length) {
     int fd = open(stir_model_filepath, O_RDONLY);
     if (fd == -1) {
         stir_perror_fatal("failed to open stir model");
