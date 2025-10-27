@@ -164,6 +164,7 @@ class RHSTTranslator:
                 msg, sender = bindings[condition.ref]
                 slot_id = self._get_msg_slot(trans_ctx, sender, instance_ctx.instance.ref, msg)
                 transition.add_guard(STBoolGuardCondition(slot_id, True))
+                transition.add_instruction(STSetBoolInstruction(slot_id, False))
         elif conjunction := condition.operation.as_conjunction():
             for conj in conjunction.conjuncts:
                 self.translate_condition(trans_ctx, instance_ctx, transition, self._context[conj].to_predicate(), bindings)

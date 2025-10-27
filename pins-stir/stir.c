@@ -148,7 +148,7 @@ static void load_model_transitions(const char **content, struct stir_model *mode
             }
             *content += read;
 
-            transition->guards[i].type = STIR_MODEL_GUARD_BOOL;
+            transition->guards[j].type = STIR_MODEL_GUARD_BOOL;
         }
 
         for (size_t j = 0; j < transition->num_of_instr; j++) {

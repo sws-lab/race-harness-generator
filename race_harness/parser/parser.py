@@ -169,7 +169,8 @@ class RHInterp(lark.visitors.Interpreter):
 
         # self._current_block.set_unconditional_successor(loop_head_block)
         self._set_successor(self._current_block, loop_head_block)
-        self._set_branch(loop_head_block, loop_entry_block, loop_tail_block, self._ctx.new_predicate(RHNondetPred()))
+        self._set_successor(loop_head_block, loop_entry_block)
+        # self._set_branch(loop_head_block, loop_entry_block, loop_tail_block, self._ctx.new_predicate(RHNondetPred()))
         # loop_head_block.set_conditional_successor(loop_entry_block, loop_tail_block, self._ctx.new_predicate(RHNondetPred()))
         self._current_block = loop_entry_block
         open_blocks = self.visit(tree.children[1])

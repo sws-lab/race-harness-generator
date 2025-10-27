@@ -40,4 +40,4 @@ loaded:
 }
 
 run driver pdriver
-run clients[4] pclient
+run clients[7] pclient
