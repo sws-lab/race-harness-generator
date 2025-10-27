@@ -41,7 +41,7 @@ static void process_bin_content(const struct stir_model *model, const char *bin_
         const int *state = (const int *) (((uintptr_t) bin_content) + i * sizeof(int) * model->state.num_of_slots);
         for (size_t j = 0; j < num_of_nodes; j++) {
             size_t node1 = slot_id_mapping[j];
-            for (size_t k = 0; k < num_of_nodes; k++) {
+            for (size_t k = j + 1; k < num_of_nodes; k++) {
                 if (k == j) {
                     continue;
                 }
@@ -53,13 +53,12 @@ static void process_bin_content(const struct stir_model *model, const char *bin_
         }
     }
 
-    fprintf(out, "slot1,value1,slot2,value2\n");
     for (size_t i = 0; i < num_of_nodes; i++) {
         size_t node1 = slot_id_mapping[i];
-        for (int j = 0; j < max_node_value; j++) {
-            for (size_t k = 0; k < num_of_nodes; k++) {
+        for (int j = 0; j < max_node_value + 1; j++) {
+            for (size_t k = i + 1; k < num_of_nodes; k++) {
                 size_t node2 = slot_id_mapping[k];
-                for (int l = 0; l < max_node_value; l++) {
+                for (int l = 0; l < max_node_value + 1; l++) {
                     size_t index = (i * (max_node_value + 1) + j) * num_of_nodes * (max_node_value + 1) + k * (max_node_value + 1) + l;
                     if (matrix[index]) {
                         fprintf(out, "%zu,%d,%zu,%d\n", node1, j, node2, l);

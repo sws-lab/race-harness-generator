@@ -29,13 +29,15 @@ alive:
         do load
         send loaded clients
 loaded:
-        loop if recv req_conn from client then set active_clients add client
-            else if recv disconnect from client then set active_clients del client
-            else if set active_clients empty then break loaded
+        loop if recv req_conn from client then {
+            set active_clients add client
+            send grant client
+        } else if recv disconnect from client then set active_clients del client
+          else if set active_clients empty then break loaded
         send unload clients
         do unload
     }
 }
 
 run driver pdriver
-run clients[6] pclient
+run clients[4] pclient

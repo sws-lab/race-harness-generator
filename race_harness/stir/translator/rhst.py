@@ -2,6 +2,7 @@ import dataclasses
 from typing import Dict, List, Tuple, Optional, Iterable
 from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef, RHSet
 from race_harness.stir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, STSlotID, STTransition, STBoolGuardCondition
+from race_harness.stir.translator.mapping import STRHMapping
 
 @dataclasses.dataclass
 class BlockContext:
@@ -53,10 +54,15 @@ class RHSTTranslator:
     def __init__(self, context: RHContext, st_module: STModule):
         self._context = context
         self._st_module = st_module
+        self._mapping = STRHMapping()
 
     @property
     def st_module(self) -> STModule:
         return self._st_module
+    
+    @property
+    def mapping(self) -> STRHMapping:
+        return self._mapping
     
     def translate_module(self, module: RHModule):
         trans_ctx = TranslatorContext(
@@ -99,6 +105,7 @@ class RHSTTranslator:
                     node=self._st_module.new_node()
                 )
                 trans_ctx.blocks[(instance_ctx.instance, block)] = block_ctx
+                self._mapping.map_to(block_ctx.node, instance_ctx.instance.ref, block.ref)
             self.traverse_block(instance_ctx, block_ctx, block_queue)
             self.translate_block(trans_ctx, instance_ctx, block_ctx, pred_node, neg_condition, condition)
 
@@ -122,6 +129,7 @@ class RHSTTranslator:
                     transition.add_instruction(STExternalActionInstruction(ext_action.external_action))
                 elif trans := oper.as_transmission():
                     for dst in trans.destinations:
+                        _, dst = bindings.get(dst, (None, dst))
                         dst_entity = self._context[dst]
                         if dst_entity.as_instance():
                             msg_slot = self._get_msg_slot(trans_ctx, instance_ctx.instance.ref, dst_entity.ref, trans.message)
