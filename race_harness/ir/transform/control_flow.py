@@ -20,33 +20,32 @@ def optimize_block_control_flow(context: RHContext, control_flow: RHControlFlow,
 
             drop_block = False
             if block.is_empty:
+                drop_block = True
                 for source_ref in list(control_flow.edges_to(block.ref)):
                     source_block = context[source_ref].to_effect_block()
                     in_edge = control_flow.edge_from(source_ref)
                     if isinstance(in_edge, RHUnconditionalControlFlowEdge) and out_edge is None:
                         control_flow.drop_edge(source_ref)
-                        drop_block = True
                     elif isinstance(in_edge, RHUnconditionalControlFlowEdge) and isinstance(out_edge, RHUnconditionalControlFlowEdge):
                         control_flow.drop_edge(source_ref)
                         control_flow.add_unconditional_edge(source_block, out_edge.target)
-                        drop_block = True
                     elif isinstance(in_edge, RHUnconditionalControlFlowEdge) and isinstance(out_edge, RHConditionalControlFlowEdge):
                         control_flow.drop_edge(source_ref)
                         control_flow.add_conditional_edge(source_block, out_edge.target, out_edge.alternative, out_edge.condition)
-                        drop_block = True
                     elif isinstance(in_edge, RHConditionalControlFlowEdge) and isinstance(out_edge, RHUnconditionalControlFlowEdge):
                         if in_edge.target.ref == block.ref:
                             control_flow.drop_edge(source_ref)
                             control_flow.add_conditional_edge(source_block, out_edge.target, in_edge.alternative, in_edge.condition)
-                            drop_block = True
                         elif in_edge.alternative.ref == block.ref:
                             control_flow.drop_edge(source_ref)
                             control_flow.add_conditional_edge(source_block, in_edge.target, out_edge.target, in_edge.condition)
-                            drop_block = True
-
+                        else:
+                            drop_block = False
+                    else:
+                        drop_block = False
             if drop_block:
-                fixpoint = False
                 if block.ref != entry_point.ref:
+                    fixpoint = False
                     control_flow.drop_edge(block.ref)
                     context.drop_entity(block.ref)
 

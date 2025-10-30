@@ -17,6 +17,12 @@ class RHRef:
     def __eq__(self, value):
         return isinstance(value, RHRef) and self.uid == value.uid
     
+    def __lt__(self, value):
+        if isinstance(value, RHRef):
+            return True if self.uid < value.uid else False
+        else:
+            return True
+    
     def __str__(self):
         return f'%{self.uid}'
     
