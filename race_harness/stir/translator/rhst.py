@@ -122,7 +122,7 @@ class RHSTTranslator:
         for bindings in self._enumerate_condition_bindings(trans_ctx, condition):
             transition = self._st_module.new_transition(instance_ctx.node_slot, pred_node, block_ctx.node, neg_condition)
             if condition is not None:
-                self.translate_condition(trans_ctx, instance_ctx, transition, condition, bindings)
+                self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, condition, bindings)
 
             for oper in block_ctx.block.content:
                 if ext_action := oper.as_external_action():
@@ -147,7 +147,7 @@ class RHSTTranslator:
                     elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, set_del.target_set, value)
                     transition.add_instruction(STSetBoolInstruction(elt_slot, False))
 
-    def translate_condition(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, transition: STTransition, condition: RHPredicate, bindings: Dict[RHRef, Tuple[RHRef, RHRef]]):
+    def translate_condition(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, transition: STTransition, neg_condition: bool, condition: RHPredicate, bindings: Dict[RHRef, Tuple[RHRef, RHRef]]):
         if condition.operation.as_nondet():
             pass
         elif set_empty := condition.operation.as_set_empty():
@@ -164,10 +164,11 @@ class RHSTTranslator:
                 msg, sender = bindings[condition.ref]
                 slot_id = self._get_msg_slot(trans_ctx, sender, instance_ctx.instance.ref, msg)
                 transition.add_guard(STBoolGuardCondition(slot_id, True))
-                transition.add_instruction(STSetBoolInstruction(slot_id, False))
+                if not neg_condition:
+                    transition.add_instruction(STSetBoolInstruction(slot_id, False))
         elif conjunction := condition.operation.as_conjunction():
             for conj in conjunction.conjuncts:
-                self.translate_condition(trans_ctx, instance_ctx, transition, self._context[conj].to_predicate(), bindings)
+                self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, self._context[conj].to_predicate(), bindings)
 
     def _get_msg_slot(self, trans_ctx: TranslatorContext, sender_ref: RHRef, receiver_ref: RHRef, message_ref: RHRef) -> STSlotID:
         key = (sender_ref, receiver_ref, message_ref)

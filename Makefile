@@ -1,5 +1,5 @@
 SIMU_CC ?= cc
-SIMU_CFLAGS ?= -O3 -ggdb -fsanitize=thread
+SIMU_CFLAGS ?= -O3 -march=native -ggdb -fsanitize=thread
 
 OUT_DIR := out
 EXAMPLES_DIR := examples

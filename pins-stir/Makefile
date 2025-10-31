@@ -1,5 +1,5 @@
 CC?=cc
-CFLAGS?=-std=c17 -Wall -Wextra -pedantic -O3 -ggdb
+CFLAGS?=-std=c17 -Wall -Wextra -pedantic -O3 -march=native -ggdb
 LDFLAGS?=
 
 LTSMIN_DIR?=

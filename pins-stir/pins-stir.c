@@ -112,7 +112,8 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
     for (size_t i = 0; i < transition->num_of_guards; i++) {
         switch (transition->guards[i].type) {
             case STIR_MODEL_GUARD_BOOL:
-                if (src[transition->guards[i].bool_guard.slot_id] != transition->guards[i].bool_guard.value) {
+                if ((!transition->invert_guard && src[transition->guards[i].bool_guard.slot_id] != transition->guards[i].bool_guard.value) ||
+                    (transition->invert_guard && src[transition->guards[i].bool_guard.slot_id] == transition->guards[i].bool_guard.value)) {
                     return 0;
                 }
                 break;

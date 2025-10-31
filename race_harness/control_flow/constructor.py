@@ -1,6 +1,6 @@
 import dataclasses
 from typing import Dict, Iterable, Optional, Tuple
-from race_harness.control_flow.node import CFSequence, CFStatement, CFLabelID, CFReturn, CFGoto, CFBranch, CFLabelledNode, CFInitBarrier, CFNode, CFModule, CFMutexID, CFSynchronization
+from race_harness.control_flow.node import CFSequence, CFStatement, CFLabelID, CFReturn, CFGoto, CFBranch, CFLabelledNode, CFInitBarrier, CFModule, CFMutexID, CFSynchronization
 from race_harness.ir import RHModule, RHContext, RHInstance, RHProcess, RHEffectBlock, RHRef
 from race_harness.ir.mutex import RHMutualExclusion
 from race_harness.error import RHError
