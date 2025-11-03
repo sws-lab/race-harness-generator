@@ -102,7 +102,7 @@ class RHInterp(lark.visitors.Interpreter):
         proc_ref = self._scope.resolve(proc_name)
         items = list()
         for i in range(cardinality):
-            items.append(self._ctx.new_instance(f'{instance_name}[{i}]', proc_ref).ref)
+            items.append(self._ctx.new_instance(f'{instance_name}{i}', proc_ref).ref)
         ref = self._ctx.new_fixed_set(instance_name, items).ref
         self._scope.bind(instance_name, ref)
         return ('instance', items)
@@ -147,6 +147,9 @@ class RHInterp(lark.visitors.Interpreter):
         msg = self._scope[msg_name]
         destination = self._scope[destination_name]
         self._ctx.add_operation(self._current_block.ref, RHTransmissionOp((destination,), msg))
+        next_block = self._ctx.new_effect_block()
+        self._set_successor(self._current_block, next_block)
+        self._current_block = next_block
     
     def multicast_send_stmt(self, tree: lark.Tree):
         msg_name = self.visit(tree.children[1])
@@ -157,10 +160,16 @@ class RHInterp(lark.visitors.Interpreter):
             for destination_name in destination_names
         )
         self._ctx.add_operation(self._current_block.ref, RHTransmissionOp(destinations, msg))
+        next_block = self._ctx.new_effect_block()
+        self._set_successor(self._current_block, next_block)
+        self._current_block = next_block
     
     def action_stmt(self, tree: lark.Tree):
         action_name = str(tree.children[1])
         self._ctx.add_operation(self._current_block.ref, RHExternalActionOp(action_name))
+        next_block = self._ctx.new_effect_block()
+        self._set_successor(self._current_block, next_block)
+        self._current_block = next_block
     
     def loop_stmt(self, tree: lark.Tree):
         loop_head_block = self._ctx.new_effect_block()

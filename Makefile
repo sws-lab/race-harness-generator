@@ -1,5 +1,5 @@
 SIMU_CC ?= cc
-SIMU_CFLAGS ?= -O3 -march=native -ggdb -fsanitize=thread
+SIMU_CFLAGS ?= -O0 -march=native -ggdb -fsanitize=thread
 
 OUT_DIR := out
 EXAMPLES_DIR := examples
@@ -48,8 +48,8 @@ $(OUT_DIR)/%.simu.c: $(OUT_DIR)/%.csv
 	uv run generate.py $(patsubst $(OUT_DIR)/%.simu.c,$(EXAMPLES_DIR)/%.rh,$@) $< > "$@.tmp"
 	mv "$@.tmp" "$@"
 
-$(OUT_DIR)/%.simu: $(OUT_DIR)/%.simu.c
-	$(SIMU_CC) $(SIMU_CFLAGS) -o "$@" $<
+$(OUT_DIR)/%.simu: $(EXAMPLES_DIR)/%.lib.c $(OUT_DIR)/%.simu.c
+	$(SIMU_CC) -DRH_IMPL -I$(OUT_DIR) $(SIMU_CFLAGS) -o "$@" $<
 
 $(LIBPINS_STIR_SO): $(C_SOURCE)
 	cd pins-stir && $(MAKE) all

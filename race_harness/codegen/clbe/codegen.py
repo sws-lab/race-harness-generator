@@ -1,5 +1,7 @@
 import io
-from race_harness.control_flow import CFModule, CFNode
+import string
+import random
+from race_harness.control_flow import CFModule, CFModuleInterface, CFNode
 
 class CLBECodegen:
     NO_NL = object()
@@ -7,11 +9,17 @@ class CLBECodegen:
     def __init__(self, out: io.TextIOBase):
         self._out = out
 
+    def codegen_module_interface(self, module_iface: CFModuleInterface):
+        self._do_codegen(self._codegen_module_interface, module_iface)
+
     def codegen_module(self, module: CFModule):
+        self._do_codegen(self._codegen_module, module)
+
+    def _do_codegen(self, callback, *args, **kwargs):
         indent = 0
         skip_newline = False
         indent_next = True
-        for entry in self._codegen_module(module):
+        for entry in callback(*args, **kwargs):
             if isinstance(entry, int):
                 indent += entry
             elif entry == CLBECodegen.NO_NL:
@@ -29,6 +37,38 @@ class CLBECodegen:
                     else:
                         indent_next = False
                 skip_newline = False
+
+    def _codegen_module_interface(self, module_iface: CFModuleInterface):
+        iface_guard = ''.join(random.choices(string.ascii_uppercase, k=16))
+        yield f'#ifndef RACE_HARNESS_INTERFACE_{iface_guard}_H_'
+        yield f'#define RACE_HARNESS_INTERFACE_{iface_guard}_H_'
+
+        instances = list(module_iface.instances)
+        for idx, instance in enumerate(instances):
+            if idx == 0:
+                yield ''
+                yield 'enum rh_process_instance {'
+                yield 1
+                
+            if idx + 1 < len(instances):
+                yield CLBECodegen.NO_NL
+                yield instance.upper()
+                yield ','
+            else:
+                yield instance.upper()
+        if instances:
+            yield -1
+            yield '};'
+
+        yield ''
+        for external_action in module_iface.external_actions:
+            yield f'extern void {external_action}(enum rh_process_instance);'
+        yield ''
+
+        yield '#endif'
+        yield ''
+
+        yield '#ifdef RH_IMPL'
     
     def _codegen_module(self, module: CFModule):
         yield '''
@@ -37,8 +77,12 @@ class CLBECodegen:
 #include <pthread.h>
 '''
 
+        has_mutexes = False
         for mutex in module.mutexes:
             yield f'pthread_mutex_t mtx{mutex.mutex_id};'
+            has_mutexes = True
+        if has_mutexes:
+            yield ''
 
         for procedure_name, procedure_body in module.procedures.items():
             yield f'void *{procedure_name}(void *arg) {{'
@@ -87,10 +131,11 @@ class CLBECodegen:
         yield -1
         yield '}'
 
+        yield '#endif'
+
     def _codegen_node(self, module: CFModule, procedure_name: str, node: CFNode, *, top_level_node: bool = False):
         if stmt := node.as_statement():
-            yield f'// Do {stmt.action}'
-            yield f'printf("Do {stmt.action} from {procedure_name}\\n");'
+            yield f'{stmt.action}({procedure_name.upper()});'
         elif seq := node.as_sequence():
             if not top_level_node:
                 yield '{'
@@ -101,7 +146,8 @@ class CLBECodegen:
                 yield -1
                 yield '}'
         elif label := node.as_labelled():
-            yield f'label{label.label.label_id}:'
+            yield CLBECodegen.NO_NL
+            yield f'label{label.label.label_id}: '
             yield from self._codegen_node(module, procedure_name, label.node)
         elif goto := node.as_goto():
             yield f'goto label{goto.label.label_id};'

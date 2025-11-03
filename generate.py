@@ -29,12 +29,17 @@ def main():
             instance_block1_ref = rhst_translator.mapping.get_mapping(node1_id)
             instance_block2_ref = rhst_translator.mapping.get_mapping(node2_id)
             if instance_block1_ref and instance_block2_ref:
+                # print(instance_block1_ref, instance_block2_ref)
                 mutinc.add_cooccuring_states(*instance_block1_ref, *instance_block2_ref)
 
     cf_constructor = CFConstructor(context, mutex)
     cf_module = cf_constructor.construct_module(module)
 
+    # print(st_module)
+    # print(context)
+
     codegen = CLBECodegen(sys.stdout)
+    codegen.codegen_module_interface(cf_module.interface)
     codegen.codegen_module(cf_module)
 
 if __name__ == "__main__":

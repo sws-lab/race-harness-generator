@@ -1,6 +1,6 @@
 import dataclasses
 from typing import Dict, Iterable, Optional, Tuple
-from race_harness.control_flow.node import CFSequence, CFStatement, CFLabelID, CFReturn, CFGoto, CFBranch, CFLabelledNode, CFInitBarrier, CFModule, CFMutexID, CFSynchronization
+from race_harness.control_flow.node import CFSequence, CFStatement, CFLabelID, CFReturn, CFGoto, CFBranch, CFLabelledNode, CFInitBarrier, CFModule, CFMutexID, CFSynchronization, CFModuleInterface
 from race_harness.ir import RHModule, RHContext, RHInstance, RHProcess, RHEffectBlock, RHRef
 from race_harness.ir.mutex import RHMutualExclusion
 from race_harness.error import RHError
@@ -72,6 +72,7 @@ class CFConstructor:
             top_level_sequence=CFSequence(())
         )
         entry_label = self._construct_block(module_state, instance_state, process.entry_block)
+        module_state.cf_module.interface.declare_instance(instance.label)
 
         prologue = CFSequence(())
         prologue.add_node(CFInitBarrier())
@@ -79,7 +80,7 @@ class CFConstructor:
         prologue.add_node(CFGoto(entry_label))
         prologue.add_node(instance_state.top_level_sequence)
 
-        module_state.cf_module.add_procedure(f'instance{instance.ref.uid}', prologue)
+        module_state.cf_module.add_procedure(instance.label, prologue)
     
     def _construct_block(self, module_state: ModuleConstructionState, instance_state: InstanceConstructionState, block: RHEffectBlock) -> CFLabelledNode:
         if block.ref in instance_state.block_label_map:
@@ -92,6 +93,7 @@ class CFConstructor:
         for op in block.content:
             if ext_act := op.as_external_action():
                 cf_seq.add_node(CFStatement(ext_act.external_action))
+                module_state.cf_module.interface.declare_external_action(ext_act.external_action)
 
         edge = instance_state.process.control_flow.edge_from(block.ref)
         successor_labels = [

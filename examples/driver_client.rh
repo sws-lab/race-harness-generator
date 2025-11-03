@@ -12,13 +12,12 @@ enum drvmsg {
 proc pclient in drvmsg out cltmsg {
 alive:
     loop if recv loaded then {
+        if recv grant then {}
         send req_conn driver
-        if recv grant then {
-            do acquire_conn
+        if recv unload then continue alive else if recv grant then {
             do use_conn
-            do release_conn
             send disconnect driver
-        } else if recv unload then continue alive
+        }
     }
 }
 
@@ -27,12 +26,13 @@ proc pdriver in cltmsg out drvmsg {
 alive:
     loop {
         do load
+        if recv req_conn from client then {} else if recv disconnect from client then {}
         send loaded clients
 loaded:
-        loop if recv req_conn from client then {
+        loop if recv req_conn from client and set active_clients empty then {
             set active_clients add client
             send grant client
-        } else if recv disconnect from client then set active_clients del client
+        } else if recv disconnect from client and set active_clients has client then set active_clients del client
           else if set active_clients empty then break loaded
         send unload clients
         do unload
@@ -40,4 +40,4 @@ loaded:
 }
 
 run driver pdriver
-run clients[3] pclient
+run clients[1] pclient

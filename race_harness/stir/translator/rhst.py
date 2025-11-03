@@ -176,6 +176,7 @@ class RHSTTranslator:
         if slot_id is None:
             slot_id = self._st_module.state.new_boolean_slot(False)
             trans_ctx.message_slots[key] = slot_id
+            # print('MSG', message_ref, slot_id)
         return slot_id
     
     def _get_set_element_slot(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, set_ref: RHRef, element_ref: RHRef) -> STSlotID:

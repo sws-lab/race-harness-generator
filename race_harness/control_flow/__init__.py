@@ -1,2 +1,2 @@
-from .node import CFNode, CFStatement, CFSequence, CFBranch, CFGoto, CFInitBarrier, CFModule, CFReturn, CFSynchronization, CFLabelledNode, CFLabelID, CFMutexID
+from .node import CFNode, CFStatement, CFSequence, CFBranch, CFGoto, CFInitBarrier, CFModule, CFReturn, CFSynchronization, CFLabelledNode, CFLabelID, CFMutexID, CFModuleInterface
 from .constructor import CFConstructor

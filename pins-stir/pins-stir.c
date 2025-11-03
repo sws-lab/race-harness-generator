@@ -54,6 +54,7 @@ static void init_pins_state_from_stir(const struct stir_model *stir_model, model
     }
 
     write_pins_stir_state(stir_model, initial_state);
+    write_pins_stir_state(stir_model, initial_state);
     GBsetInitialState(model, initial_state);
     free(initial_state);
 }
@@ -122,7 +123,7 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
 
     memcpy(dst, src, sizeof(int) * STIR_MODEL.state.num_of_slots);
     dst[transition->component_slot_id] = transition->dst_node;
-    for (size_t i = 0; i <transition->num_of_instr; i++) {
+    for (size_t i = 0; i < transition->num_of_instr; i++) {
         switch (transition->instructions[i].type) {
             case STIR_MODEL_INSTR_SET_BOOL:
                 dst[transition->instructions[i].set_bool.slot_id] = transition->instructions[i].set_bool.value;
@@ -136,6 +137,7 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
 
     transition_info_t ti = GB_TI(NULL, group);
     cb(user_context, &ti, dst, NULL);
+    write_pins_stir_state(&STIR_MODEL, src);
     write_pins_stir_state(&STIR_MODEL, dst);
     return 1;
 }

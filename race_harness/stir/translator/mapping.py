@@ -9,6 +9,7 @@ class STRHMapping:
 
     def map_to(self, st_node_id: STNodeID, instance_ref: RHRef, block_ref: RHRef):
         self._mapping[st_node_id] = (instance_ref, block_ref)
+        # print(st_node_id, instance_ref, block_ref)
 
     def get_mapping(self, st_node_id: STNodeID) -> Optional[Tuple[RHRef, RHRef]]:
         return self._mapping.get(st_node_id, None)

@@ -166,15 +166,40 @@ class CFInitBarrier(CFNode):
     def as_init_barrier(self):
         return self
 
+class CFModuleInterface(CFNode):
+    def __init__(self):
+        super().__init__()
+        self._external_actions = dict()
+        self._instances = dict()
+
+    def declare_external_action(self, action: str):
+        self._external_actions[action] = None
+
+    def declare_instance(self, instance: str):
+        self._instances[instance] = None
+
+    @property
+    def external_actions(self) -> Iterable[str]:
+        yield from self._external_actions.keys()
+
+    @property
+    def instances(self) -> Iterable[str]:
+        yield from self._instances.keys()
+
 class CFModule(CFNode):
     def __init__(self, procedures: Dict[str, CFNode]):
         super().__init__()
         self._next_mutex_id = 0
         self._next_label_id = 0
         self._procedures = procedures.copy()
+        self._interface = CFModuleInterface()
 
     def as_module(self):
         return self
+    
+    @property
+    def interface(self) -> CFModuleInterface:
+        return self._interface
 
     @property
     def procedures(self) -> Dict[str, CFNode]:
