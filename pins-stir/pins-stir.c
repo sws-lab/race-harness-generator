@@ -110,15 +110,21 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
     if (src[transition->component_slot_id] != transition->src_node) {
         return 0;
     }
+    int satisfies_cond = 1;
     for (size_t i = 0; i < transition->num_of_guards; i++) {
         switch (transition->guards[i].type) {
             case STIR_MODEL_GUARD_BOOL:
-                if ((!transition->invert_guard && src[transition->guards[i].bool_guard.slot_id] != transition->guards[i].bool_guard.value) ||
-                    (transition->invert_guard && src[transition->guards[i].bool_guard.slot_id] == transition->guards[i].bool_guard.value)) {
-                    return 0;
+                if (src[transition->guards[i].bool_guard.slot_id] != transition->guards[i].bool_guard.value) {
+                    satisfies_cond = 0;
                 }
                 break;
         }
+    }
+    if (transition->invert_guard) {
+        satisfies_cond = !satisfies_cond;
+    }
+    if (!satisfies_cond) {
+        return 0;
     }
 
     memcpy(dst, src, sizeof(int) * STIR_MODEL.state.num_of_slots);
