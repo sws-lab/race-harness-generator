@@ -82,6 +82,14 @@ static struct stir_model_state load_stir_model_state(const char **content) {
             continue;
         }
 
+        slots[i].slot_id = slot_id;
+        rc = sscanf(*content, "int %d\n%n", &slots[i].init_value, &read);
+        if (rc != 0) {
+            *content += read;
+            slots[i].type = STIR_MODEL_SLOT_INT;
+            continue;
+        }
+
         rc = sscanf(*content, "node %d\n%n", &slots[i].init_value, &read);
         if (rc != 0) {
             *content += read;
@@ -143,12 +151,21 @@ static void load_model_transitions(const char **content, struct stir_model *mode
         for (size_t j = 0; j < transition->num_of_guards; j++) {
             rc = sscanf(*content, "bool_guard %zu %d\n%n",
                 &transition->guards[j].bool_guard.slot_id, &transition->guards[j].bool_guard.value, &read);
-            if (rc == 0) {
-                stir_fatal("failed to parse stir model transition guard");
+            if (rc != 0) {
+                *content += read;
+                transition->guards[j].type = STIR_MODEL_GUARD_BOOL;
+                continue;
             }
-            *content += read;
 
-            transition->guards[j].type = STIR_MODEL_GUARD_BOOL;
+            rc = sscanf(*content, "int_guard %zu %d\n%n",
+                &transition->guards[j].int_guard.slot_id, &transition->guards[j].int_guard.value, &read);
+            if (rc != 0) {
+                *content += read;
+                transition->guards[j].type = STIR_MODEL_GUARD_INT;
+                continue;
+            }
+
+            stir_fatal("failed to parse stir model transition guard");
         }
 
         for (size_t j = 0; j < transition->num_of_instr; j++) {
@@ -170,6 +187,14 @@ static void load_model_transitions(const char **content, struct stir_model *mode
             if (rc != 0) {
                 *content += read;
                 transition->instructions[j].type = STIR_MODEL_INSTR_SET_BOOL;
+                continue;
+            }
+            
+            rc = sscanf(*content, "set_int_instr %zu %d\n%n",
+                &transition->instructions[j].set_int.slot_id, &transition->instructions[j].set_int.value, &read);
+            if (rc != 0) {
+                *content += read;
+                transition->instructions[j].type = STIR_MODEL_INSTR_SET_INT;
                 continue;
             }
 

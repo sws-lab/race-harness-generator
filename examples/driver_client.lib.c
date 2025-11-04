@@ -34,7 +34,7 @@ void acquire_conn(enum rh_process_instance instance) {
 void use_conn(enum rh_process_instance instance) {
     (void) instance;
 
-    printf("USE\n");
+    printf("USE %d\n", instance);
     state->value++;
 }
 

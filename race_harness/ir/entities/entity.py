@@ -22,7 +22,7 @@ class RHEntity(abc.ABC):
     def as_symbol(self) -> Optional['RHSymbol']:
         return None
     
-    def as_fixed_set(self) -> Optional['RHFixedSet']:
+    def as_domain(self) -> Optional['RHDomain']:
         return None
     
     def as_protocol(self) -> Optional['RHProtocol']:

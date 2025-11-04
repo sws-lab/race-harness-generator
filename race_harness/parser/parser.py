@@ -61,16 +61,16 @@ class RHInterp(lark.visitors.Interpreter):
         module = self._ctx.new_module(processes, instances)
         return module
 
-    def enum_decl(self, tree: lark.Tree):
-        enum_name = str(tree.children[1])
+    def channel_decl(self, tree: lark.Tree):
+        channel_name = str(tree.children[1])
         refs = list()
         for child in tree.children[3].children:
-            name = str(child.children[0])
-            ref = self._ctx.new_symbol(name).ref
-            self._scope.bind(name, ref)
+            symbol = self.visit(child)
+            ref = self._ctx.new_symbol(symbol).ref
+            self._scope.bind(symbol, ref)
             refs.append(ref)
-        ref = self._ctx.new_fixed_set(enum_name, refs).ref
-        self._scope.bind(enum_name, ref)
+        ref = self._ctx.new_domain(channel_name, refs).ref
+        self._scope.bind(channel_name, ref)
 
     def proc_decl(self, tree: lark.Tree):
         decl_name = str(tree.children[1])
@@ -82,10 +82,17 @@ class RHInterp(lark.visitors.Interpreter):
     def proc_protocol_decl(self, tree: lark.Tree):
         in_proto, out_proto = None, None
         if len(tree.children) > 0:
-            in_proto = self._scope.resolve(str(tree.children[1]))
+            in_proto = self.visit(tree.children[1])
             if len(tree.children) > 2:
-                out_proto = self._scope.resolve(str(tree.children[3]))
+                out_proto = self.visit(tree.children[3])
         return (in_proto, out_proto)
+    
+    def protocol_channel_list(self, tree: lark.Tree):
+        channel_symbol = self.visit(tree.children[0])
+        lst = [self._scope.resolve(channel_symbol)]
+        if len(tree.children) > 1:
+            lst.extend(self.protocol_channel_list(tree.children[1]))
+        return lst
 
     def proc_single_instance(self, tree: lark.Tree):
         instance_name = str(tree.children[1])
@@ -103,7 +110,7 @@ class RHInterp(lark.visitors.Interpreter):
         items = list()
         for i in range(cardinality):
             items.append(self._ctx.new_instance(f'{instance_name}{i}', proc_ref).ref)
-        ref = self._ctx.new_fixed_set(instance_name, items).ref
+        ref = self._ctx.new_domain(instance_name, items).ref
         self._scope.bind(instance_name, ref)
         return ('instance', items)
 
@@ -115,7 +122,6 @@ class RHInterp(lark.visitors.Interpreter):
             if open_blocks:
                 self._current_block = self._ctx.new_effect_block()
                 for block in open_blocks:
-                    # block.set_unconditional_successor(self._current_block)
                     self._set_successor(block, self._current_block)
         self._scopes.pop()
         return []
@@ -176,34 +182,27 @@ class RHInterp(lark.visitors.Interpreter):
         loop_entry_block = self._ctx.new_effect_block()
         loop_tail_block = self._ctx.new_effect_block()
 
-        # self._current_block.set_unconditional_successor(loop_head_block)
         self._set_successor(self._current_block, loop_head_block)
         self._set_successor(loop_head_block, loop_entry_block)
-        # self._set_branch(loop_head_block, loop_entry_block, loop_tail_block, self._ctx.new_predicate(RHNondetPred()))
-        # loop_head_block.set_conditional_successor(loop_entry_block, loop_tail_block, self._ctx.new_predicate(RHNondetPred()))
         self._current_block = loop_entry_block
         open_blocks = self.visit(tree.children[1])
         if open_blocks:
             for block in open_blocks:
                 self._set_successor(block, loop_head_block)
-                # block.set_unconditional_successor(loop_head_block)
         else:
             self._set_successor(self._current_block, loop_head_block)
-            # self._current_block.set_unconditional_successor(loop_head_block)
         self._current_block = loop_tail_block
     
     def break_stmt(self, tree: lark.Tree):
         label = self.visit(tree.children[1])        
         tail = self._scope[f'snd:{label}']
         self._set_successor(self._current_block, self._ctx[tail])
-        # self._current_block.set_unconditional_successor(self._ctx[tail])
         self._current_block = self._ctx.new_effect_block()
     
     def continue_stmt(self, tree: lark.Tree):
         label = self.visit(tree.children[1])        
         head = self._scope[f'fst:{label}']
         self._set_successor(self._current_block, self._ctx[head])
-        # self._current_block.set_unconditional_successor(self._ctx[head])
         self._current_block = self._ctx.new_effect_block()
     
     def half_branch_stmt(self, tree: lark.Tree):
@@ -216,7 +215,6 @@ class RHInterp(lark.visitors.Interpreter):
 
         condition_pred = self.visit(condition_tree)
         self._set_branch(self._current_block, branch_entry_block, None, condition_pred)
-        # self._current_block.set_conditional_successor(branch_entry_block, None, condition_pred)
         self._current_block = branch_entry_block
         
         open_blocks = self.visit(body_tree)
@@ -237,7 +235,6 @@ class RHInterp(lark.visitors.Interpreter):
         branch_else_entry_block = self._ctx.new_effect_block()
 
         self._set_branch(self._current_block, branch_then_entry_block, branch_else_entry_block, condition_pred)
-        # self._current_block.set_conditional_successor(branch_then_entry_block, branch_else_entry_block, condition_pred)
 
         exit_blocks = []
         self._current_block = branch_then_entry_block
@@ -283,16 +280,13 @@ class RHInterp(lark.visitors.Interpreter):
         self._scope.bind(f'snd:{label}', tail_block.ref)
 
         self._set_successor(self._current_block, head_block)
-        # self._current_block.set_unconditional_successor(head_block)
         self._current_block = head_block
         open_blocks = self.visit(tree.children[2])
         if open_blocks:
             for block in open_blocks:
                 self._set_successor(block, tail_block)
-                # block.set_unconditional_successor(tail_block)
         else:
             self._set_successor(self._current_block, tail_block)
-            # self._current_block.set_unconditional_successor(tail_block)
         self._scopes.pop()
         self._current_block = tail_block
 

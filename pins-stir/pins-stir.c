@@ -13,6 +13,7 @@ struct pins_types {
     lts_type_t ltstype;
     int node_type;
     int bool_type;
+    int int_type;
 };
 
 static struct stir_model STIR_MODEL = {0};
@@ -28,6 +29,7 @@ static void init_pins_types_from_stir(const struct stir_model *stir_model, model
 
     types->node_type = lts_type_add_type(types->ltstype, "node", NULL);
     types->bool_type = lts_type_add_type(types->ltstype, "bool", NULL);
+    types->int_type = lts_type_add_type(types->ltstype, "int", NULL);
 
     for (size_t i = 0; i < stir_model->state.num_of_slots; i++) {
         char name[32];
@@ -40,6 +42,10 @@ static void init_pins_types_from_stir(const struct stir_model *stir_model, model
 
             case STIR_MODEL_SLOT_BOOL:
                 lts_type_set_state_typeno(types->ltstype, stir_model->state.slots[i].slot_id, types->bool_type);
+                break;
+
+            case STIR_MODEL_SLOT_INT:
+                lts_type_set_state_typeno(types->ltstype, stir_model->state.slots[i].slot_id, types->int_type);
                 break;
         }
     }
@@ -75,6 +81,10 @@ static void init_pins_dependency_matrix_from_stir(const struct stir_model *stir_
                 case STIR_MODEL_GUARD_BOOL:
                     dm_set(dm_info, transition->transition_id, transition->guards[j].bool_guard.slot_id);
                     break;
+
+                case STIR_MODEL_GUARD_INT:
+                    dm_set(dm_info, transition->transition_id, transition->guards[j].int_guard.slot_id);
+                    break;
             }
         }
 
@@ -82,6 +92,10 @@ static void init_pins_dependency_matrix_from_stir(const struct stir_model *stir_
             switch (transition->instructions[j].type) {
                 case STIR_MODEL_INSTR_SET_BOOL:
                     dm_set(dm_info, transition->transition_id, transition->instructions[j].set_bool.slot_id);
+                    break;
+
+                case STIR_MODEL_INSTR_SET_INT:
+                    dm_set(dm_info, transition->transition_id, transition->instructions[j].set_int.slot_id);
                     break;
 
                 case STIR_MODEL_INSTR_DO:
@@ -118,6 +132,12 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
                     satisfies_cond = 0;
                 }
                 break;
+
+            case STIR_MODEL_GUARD_INT:
+                if (src[transition->guards[i].int_guard.slot_id] != transition->guards[i].int_guard.value) {
+                    satisfies_cond = 0;
+                }
+                break;
         }
     }
     if (transition->invert_guard) {
@@ -133,6 +153,10 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
         switch (transition->instructions[i].type) {
             case STIR_MODEL_INSTR_SET_BOOL:
                 dst[transition->instructions[i].set_bool.slot_id] = transition->instructions[i].set_bool.value;
+                break;
+
+            case STIR_MODEL_INSTR_SET_INT:
+                dst[transition->instructions[i].set_int.slot_id] = transition->instructions[i].set_int.value;
                 break;
 
             case STIR_MODEL_INSTR_DO:

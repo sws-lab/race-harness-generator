@@ -1,7 +1,7 @@
 import dataclasses
-from typing import Dict, List, Tuple, Optional, Iterable
-from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef, RHSet
-from race_harness.stir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, STSlotID, STTransition, STBoolGuardCondition
+from typing import Dict, List, Tuple, Optional, Iterable, Set
+from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef, RHSet, RHDomain
+from race_harness.stir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, STSlotID, STTransition, STBoolGuardCondition, STSetIntInstruction, STIntGuardCondition
 from race_harness.stir.translator.mapping import STRHMapping
 
 @dataclasses.dataclass
@@ -25,6 +25,9 @@ class TranslatorContext:
     blocks: Dict[Tuple[RHInstance, RHEffectBlock], BlockContext]
     message_slots: Dict[Tuple[RHRef, RHRef, RHRef], STSlotID]
     set_element_slots: Dict[Tuple[RHRef, RHRef, RHRef], STSlotID]
+    message_domains: Dict[RHRef, RHDomain]
+    outbound_messaging: Dict[RHRef, Set[RHProcess]]
+    inbound_messaging: Dict[RHRef, Set[RHProcess]]
 
 @dataclasses.dataclass
 class BindingsContainer:
@@ -71,10 +74,26 @@ class RHSTTranslator:
             instance_context=dict(),
             blocks=dict(),
             message_slots=dict(),
-            set_element_slots=dict()
+            set_element_slots=dict(),
+            message_domains=dict(),
+            outbound_messaging=dict(),
+            inbound_messaging=dict()
         )
         for process in module.processes:
             trans_ctx.protocol_impl[process.protocol] = process
+            for domain in process.protocol.in_protocol:
+                for message in domain:
+                    trans_ctx.message_domains[message] = domain
+                if domain not in trans_ctx.inbound_messaging:
+                    trans_ctx.inbound_messaging[domain.ref] = set()
+                trans_ctx.inbound_messaging[domain.ref].add(process)
+
+            for domain in process.protocol.out_protocol:
+                for message in domain:
+                    trans_ctx.message_domains[message] = domain
+                if domain not in trans_ctx.outbound_messaging:
+                    trans_ctx.outbound_messaging[domain.ref] = set()
+                trans_ctx.outbound_messaging[domain.ref].add(process)
         for instance in module.instances:
             entry_node = self._st_module.new_node()
             trans_ctx.instance_context[instance] = InstanceContext(
@@ -133,11 +152,11 @@ class RHSTTranslator:
                         dst_entity = self._context[dst]
                         if dst_entity.as_instance():
                             msg_slot = self._get_msg_slot(trans_ctx, instance_ctx.instance.ref, dst_entity.ref, trans.message)
-                            transition.add_instruction(STSetBoolInstruction(msg_slot, True))
-                        elif dst_entity.as_fixed_set():
-                            for subdst in dst_entity.as_fixed_set().items:
+                            transition.add_instruction(STSetIntInstruction(msg_slot, trans.message.uid))
+                        elif dst_entity.as_domain():
+                            for subdst in dst_entity.as_domain().items:
                                 msg_slot = self._get_msg_slot(trans_ctx, instance_ctx.instance.ref, subdst, trans.message)
-                                transition.add_instruction(STSetBoolInstruction(msg_slot, True))
+                                transition.add_instruction(STSetIntInstruction(msg_slot, trans.message.uid))
                 elif set_add := oper.as_set_add():
                     _, value = bindings.get(set_add.value, (None, set_add.value))
                     elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, set_add.target_set, value)
@@ -152,7 +171,7 @@ class RHSTTranslator:
             pass
         elif set_empty := condition.operation.as_set_empty():
             set: RHSet = self._context[set_empty.target_set].to_set()
-            for elt in self._context[set.domain].to_fixed_set():
+            for elt in self._context[set.domain].to_domain():
                 slot_id = self._get_set_element_slot(trans_ctx, instance_ctx, set_empty.target_set, elt)
                 transition.add_guard(STBoolGuardCondition(slot_id, False))
         elif set_has := condition.operation.as_set_has():
@@ -163,20 +182,20 @@ class RHSTTranslator:
             if condition.ref in bindings:
                 msg, sender = bindings[condition.ref]
                 slot_id = self._get_msg_slot(trans_ctx, sender, instance_ctx.instance.ref, msg)
-                transition.add_guard(STBoolGuardCondition(slot_id, True))
+                transition.add_guard(STIntGuardCondition(slot_id, msg.uid))
                 if not neg_condition:
-                    transition.add_instruction(STSetBoolInstruction(slot_id, False))
+                    transition.add_instruction(STSetIntInstruction(slot_id, -1))
         elif conjunction := condition.operation.as_conjunction():
             for conj in conjunction.conjuncts:
                 self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, self._context[conj].to_predicate(), bindings)
 
     def _get_msg_slot(self, trans_ctx: TranslatorContext, sender_ref: RHRef, receiver_ref: RHRef, message_ref: RHRef) -> STSlotID:
-        key = (sender_ref, receiver_ref, message_ref)
+        domain_ref = trans_ctx.message_domains[message_ref]
+        key = (sender_ref, receiver_ref, domain_ref)
         slot_id = trans_ctx.message_slots.get(key, None)
         if slot_id is None:
-            slot_id = self._st_module.state.new_boolean_slot(False)
+            slot_id = self._st_module.state.new_int_slot(-1)
             trans_ctx.message_slots[key] = slot_id
-            # print('MSG', message_ref, slot_id)
         return slot_id
     
     def _get_set_element_slot(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, set_ref: RHRef, element_ref: RHRef) -> STSlotID:
@@ -236,8 +255,4 @@ class RHSTTranslator:
                     yield instance_ctx.instance
 
     def _enum_senders(self, trans_ctx: TranslatorContext, msg: RHRef) -> Iterable[RHProcess]:
-        for process in trans_ctx.module.processes:
-            if process.protocol.out_protocol is not None:
-                out_proto = self._context[process.protocol.out_protocol].to_fixed_set()
-                if msg in out_proto:
-                    yield process
+        yield from trans_ctx.outbound_messaging.get(trans_ctx.message_domains[msg].ref, ())

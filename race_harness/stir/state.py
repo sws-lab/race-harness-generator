@@ -32,10 +32,13 @@ class STSlot(abc.ABC):
     def identifier(self) -> STSlotID:
         return self._identifier
     
+    def as_int(self) -> Optional['STIntSlot']:
+        return None
+    
     def as_boolean(self) -> Optional['STBooleanSlot']:
         return None
     
-    def as_node(self) -> Optional['STNodeID']:
+    def as_node(self) -> Optional['STNodeSlot']:
         return None
     
     @property
@@ -56,6 +59,21 @@ class STBooleanSlot(STSlot):
     
     def __str__(self):
         return f'{self.identifier}: bool = {self.initial_value}'
+
+class STIntSlot(STSlot):
+    def __init__(self, identifier: STSlotID, initial_value: int):
+        super().__init__(identifier)
+        self._init_value = initial_value
+
+    def as_int(self):
+        return self
+
+    @property
+    def initial_value(self) -> int:
+        return self._init_value
+    
+    def __str__(self):
+        return f'{self.identifier}: int = {self.initial_value}'
     
 class STNodeSlot(STSlot):
     def __init__(self, identifier: STSlotID, initial_value: STNodeID):
@@ -79,6 +97,11 @@ class STState:
     def new_boolean_slot(self, init_value: bool) -> STSlotID:
         slot_id = STSlotID(len(self._slots))
         self._slots[slot_id] = STBooleanSlot(slot_id, init_value)
+        return slot_id
+
+    def new_int_slot(self, init_value: int) -> STSlotID:
+        slot_id = STSlotID(len(self._slots))
+        self._slots[slot_id] = STIntSlot(slot_id, init_value)
         return slot_id
     
     def new_node_slot(self, init_value: STNodeID) -> STSlotID:

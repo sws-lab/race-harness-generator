@@ -1,6 +1,6 @@
 from .entity import RHEntity
 from .symbol import RHSymbol
-from .fixed_set import RHFixedSet
+from .domain import RHDomain
 from .protocol import RHProtocol
 from .instance import RHInstance
 from .predicate import RHPredicateOp, RHPredicate, RHNondetPred, RHConjunctionPred, RHReceivalPred, RHSetEmptyPred, RHSetHasPred

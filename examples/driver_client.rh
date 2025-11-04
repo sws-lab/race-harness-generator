@@ -1,9 +1,9 @@
-enum cltmsg {
+channel cltmsg {
     req_conn
     disconnect
 }
 
-enum drvmsg {
+channel drvmsg {
     grant
     loaded
     unload
@@ -27,10 +27,10 @@ alive:
         do load
         send loaded clients
 loaded:
-        loop if recv req_conn from client and set active_clients empty then {
+        loop if recv req_conn from client then {
             set active_clients add client
             send grant client
-        } else if recv disconnect from client and set active_clients has client then set active_clients del client
+        } else if recv disconnect from client then set active_clients del client
           else if set active_clients empty then break loaded
         send unload clients
         do unload
@@ -38,4 +38,4 @@ loaded:
 }
 
 run driver pdriver
-run clients[1] pclient
+run clients[4] pclient

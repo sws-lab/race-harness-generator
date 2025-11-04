@@ -8,7 +8,6 @@ INTEGER: /[0-9]+/
 
 KW_RUN: "run"
 KW_PROC: "proc"
-KW_ENUM: "enum"
 KW_NOOP: "noop"
 KW_DO: "do"
 KW_IN: "in"
@@ -32,6 +31,7 @@ KW_ADD: "add"
 KW_DEL: "del"
 KW_AND: "and"
 KW_NONDET: "nondet"
+KW_CHANNEL: "channel"
 
 LEFT_BRACKET: "["
 RIGHT_BRACKET: "]"
@@ -66,16 +66,16 @@ stmt: KW_NOOP -> noop_stmt
     | KW_SET symbol KW_DEL symbol -> set_del_stmt
     | symbol COLON stmt -> labelled_stmt
 
-enum_entry: IDENTIFIER
-enum_entries: enum_entry*
-enum_decl: KW_ENUM IDENTIFIER LEFT_BRACE enum_entries RIGHT_BRACE
+channel_entries: symbol*
+channel_decl: KW_CHANNEL IDENTIFIER LEFT_BRACE channel_entries RIGHT_BRACE
 
-proc_protocol_decl: (KW_IN IDENTIFIER)? (KW_OUT IDENTIFIER)?
+protocol_channel_list: symbol protocol_channel_list?
+proc_protocol_decl: (KW_IN protocol_channel_list)? (KW_OUT protocol_channel_list)?
 proc_decl: KW_PROC IDENTIFIER proc_protocol_decl stmt
 
 proc_instance: KW_RUN IDENTIFIER IDENTIFIER -> proc_single_instance
              | KW_RUN IDENTIFIER LEFT_BRACKET INTEGER RIGHT_BRACKET IDENTIFIER -> proc_multi_instance
 
-top_level_decl: proc_decl | proc_instance | enum_decl
+top_level_decl: proc_decl | proc_instance | channel_decl
 
 module: top_level_decl*

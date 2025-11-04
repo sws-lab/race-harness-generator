@@ -3,7 +3,7 @@ from typing import Optional, Iterable
 from race_harness.error import RHError
 from race_harness.ir.ref import RHRef
 from race_harness.ir.entities.entity import RHEntity
-from race_harness.ir.entities import RHSymbol, RHFixedSet, RHProtocol, RHInstance, RHEffectBlock, RHProcess, RHModule, RHSet, RHPredicate, RHPredicateOp, RHOperation, RHControlFlow
+from race_harness.ir.entities import RHSymbol, RHDomain, RHProtocol, RHInstance, RHEffectBlock, RHProcess, RHModule, RHSet, RHPredicate, RHPredicateOp, RHOperation, RHControlFlow
 
 class RHContext:
     def __init__(self):
@@ -15,20 +15,19 @@ class RHContext:
         self._add_entity(symbol)
         return symbol
     
-    def new_fixed_set(self, name: str, items: Iterable[RHRef]) -> RHFixedSet:
-        fixed_set = RHFixedSet(self._new_ref(), name, {
+    def new_domain(self, name: str, items: Iterable[RHRef]) -> RHDomain:
+        domain = RHDomain(self._new_ref(), name, (
             self._check_ref(item)
             for item in items
-        })
-        self._add_entity(fixed_set)
-        return fixed_set
+        ))
+        self._add_entity(domain)
+        return domain
     
-    def new_protocol(self, name: str, in_proto: Optional[RHRef], out_proto: Optional[RHRef]) -> RHProtocol:
-        if in_proto:
-            self._check_ref(in_proto)
-        if out_proto:
-            self._check_ref(out_proto)
-        decl = RHProtocol(self._new_ref(), name, in_proto, out_proto)
+    def new_protocol(self, name: str, in_proto: Iterable[RHRef], out_proto: Iterable[RHRef]) -> RHProtocol:
+        def map_channels(channels):
+            for chan in channels:
+                yield self[chan].to_domain()
+        decl = RHProtocol(self._new_ref(), name, map_channels(in_proto), map_channels(out_proto))
         self._add_entity(decl)
         return decl
     
