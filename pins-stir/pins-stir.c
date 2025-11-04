@@ -54,7 +54,6 @@ static void init_pins_state_from_stir(const struct stir_model *stir_model, model
     }
 
     write_pins_stir_state(stir_model, initial_state);
-    write_pins_stir_state(stir_model, initial_state);
     GBsetInitialState(model, initial_state);
     free(initial_state);
 }
@@ -135,7 +134,6 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
 
     transition_info_t ti = GB_TI(NULL, group);
     cb(user_context, &ti, dst, NULL);
-    write_pins_stir_state(&STIR_MODEL, src);
     write_pins_stir_state(&STIR_MODEL, dst);
     return 1;
 }
