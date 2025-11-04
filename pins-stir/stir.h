@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 enum stir_model_slot_type {
-    STIR_MODEL_SLOT_BOOL,
     STIR_MODEL_SLOT_INT,
     STIR_MODEL_SLOT_NODE
 };
@@ -22,24 +21,16 @@ struct stir_model_state {
 };
 
 enum stir_model_transition_guard_type {
-    STIR_MODEL_GUARD_BOOL,
     STIR_MODEL_GUARD_INT
 };
 
 enum stir_model_transition_instr_type {
-    STIR_MODEL_INSTR_DO,
-    STIR_MODEL_INSTR_SET_BOOL,
     STIR_MODEL_INSTR_SET_INT
 };
 
 struct stir_model_transition_guard {
     enum stir_model_transition_guard_type type;
     union {
-        struct {
-            size_t slot_id;
-            int value;
-        } bool_guard;
-
         struct {
             size_t slot_id;
             int value;
@@ -50,10 +41,6 @@ struct stir_model_transition_guard {
 struct stir_model_transition_instr {
     enum stir_model_transition_instr_type type;
     union {
-        struct {
-            size_t slot_id;
-            int value;
-        } set_bool;
         struct {
             size_t slot_id;
             int value;

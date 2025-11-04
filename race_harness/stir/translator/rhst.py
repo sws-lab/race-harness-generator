@@ -1,7 +1,7 @@
 import dataclasses
 from typing import Dict, List, Tuple, Optional, Iterable, Set
 from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef, RHSet, RHDomain
-from race_harness.stir import STModule, STNodeID, STExternalActionInstruction, STSetBoolInstruction, STSlotID, STTransition, STBoolGuardCondition, STSetIntInstruction, STIntGuardCondition
+from race_harness.stir import STModule, STNodeID, STExternalActionInstruction, STSlotID, STTransition, STSetIntInstruction, STIntGuardCondition
 from race_harness.stir.translator.mapping import STRHMapping
 
 @dataclasses.dataclass
@@ -160,11 +160,11 @@ class RHSTTranslator:
                 elif set_add := oper.as_set_add():
                     _, value = bindings.get(set_add.value, (None, set_add.value))
                     elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, set_add.target_set, value)
-                    transition.add_instruction(STSetBoolInstruction(elt_slot, True))
+                    transition.add_instruction(STSetIntInstruction(elt_slot, 1))
                 elif set_del := oper.as_set_del():
                     _, value = bindings.get(set_del.value, (None, set_del.value))
                     elt_slot = self._get_set_element_slot(trans_ctx, instance_ctx, set_del.target_set, value)
-                    transition.add_instruction(STSetBoolInstruction(elt_slot, False))
+                    transition.add_instruction(STSetIntInstruction(elt_slot, 0))
 
     def translate_condition(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, transition: STTransition, neg_condition: bool, condition: RHPredicate, bindings: Dict[RHRef, Tuple[RHRef, RHRef]]):
         if condition.operation.as_nondet():
@@ -173,11 +173,11 @@ class RHSTTranslator:
             set: RHSet = self._context[set_empty.target_set].to_set()
             for elt in self._context[set.domain].to_domain():
                 slot_id = self._get_set_element_slot(trans_ctx, instance_ctx, set_empty.target_set, elt)
-                transition.add_guard(STBoolGuardCondition(slot_id, False))
+                transition.add_guard(STIntGuardCondition(slot_id, 0))
         elif set_has := condition.operation.as_set_has():
             value = bindings.get(set_has.value, set_has.value)
             slot_id = self._get_set_element_slot(trans_ctx, instance_ctx, set_has.target_set, value)
-            transition.add_guard(STBoolGuardCondition(slot_id, True))
+            transition.add_guard(STIntGuardCondition(slot_id, 1))
         elif condition.operation.as_receival():
             if condition.ref in bindings:
                 msg, sender = bindings[condition.ref]
@@ -202,7 +202,7 @@ class RHSTTranslator:
         key = (instance_ctx.instance.ref, set_ref, element_ref)
         slot_id = trans_ctx.set_element_slots.get(key, None)
         if slot_id is None:
-            slot_id = self._st_module.state.new_boolean_slot(False)
+            slot_id = self._st_module.state.new_int_slot(0)
             trans_ctx.set_element_slots[key] = slot_id
         return slot_id
     

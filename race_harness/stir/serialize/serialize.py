@@ -12,10 +12,7 @@ class STSerialize:
     def serialize_state(self, state: STState):
         self._out.write(f'state {len(state)}\n')
         for slot in state:
-            if bool_slot := slot.as_boolean():
-                value = 1 if bool_slot.initial_value else 0
-                self._out.write(f'slot {bool_slot.identifier.identifier} bool {value}\n')
-            elif int_slot := slot.as_int():
+            if int_slot := slot.as_int():
                 self._out.write(f'slot {int_slot.identifier.identifier} int {int_slot.initial_value}\n')
             elif node_slot := slot.as_node():
                 self._out.write(f'slot {node_slot.identifier.identifier} node {node_slot.initial_value.node_id}\n')
@@ -23,17 +20,16 @@ class STSerialize:
     def serialize_transitions(self, module: STModule):
         self._out.write(f'transitions {len(module)}\n')
         for transition in module:
-            self._out.write(f'transition {transition.identifier.transition_id} component {transition.node_slot.identifier} src {transition.source_node_id.node_id} dst {transition.target_node_id.node_id} guards {transition.num_of_guards} {1 if transition.invert_guard else 0} instructions {transition.num_of_instructions}\n')
+            num_of_instr = sum(
+                1
+                for instr in transition.instructions
+                if instr.as_set_int() is not None
+            )
+            self._out.write(f'transition {transition.identifier.transition_id} component {transition.node_slot.identifier} src {transition.source_node_id.node_id} dst {transition.target_node_id.node_id} guards {transition.num_of_guards} {1 if transition.invert_guard else 0} instructions {num_of_instr}\n')
             for guard in transition.guards:
-                if bool_guard := guard.as_bool():
-                    self._out.write(f'bool_guard {bool_guard.slot_id.identifier} {1 if bool_guard.value else 0}\n')
-                elif int_guard := guard.as_int():
+                if int_guard := guard.as_int():
                     self._out.write(f'int_guard {int_guard.slot_id.identifier} {int_guard.value}\n')
 
             for instr in transition.instructions:
-                if ext_action := instr.as_external_action():
-                    self._out.write(f'do_instr {ext_action.action}\n')
-                elif set_bool := instr.as_set_bool():
-                    self._out.write(f'set_bool_instr {set_bool.slot_id.identifier} {1 if set_bool.value else 0}\n')
-                elif set_int := instr.as_set_int():
+                if set_int := instr.as_set_int():
                     self._out.write(f'set_int_instr {set_int.slot_id.identifier} {set_int.value}\n')

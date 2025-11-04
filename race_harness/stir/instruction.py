@@ -10,9 +10,6 @@ class STInstruction(abc.ABC):
     def as_external_action(self) -> 'STExternalActionInstruction':
         return None
     
-    def as_set_bool(self) -> 'STSetBoolInstruction':
-        return None
-    
     def as_set_int(self) -> 'STSetIntInstruction':
         return None
 
@@ -30,26 +27,6 @@ class STExternalActionInstruction(STInstruction):
     
     def __str__(self):
         return f'do {self.action}'
-
-class STSetBoolInstruction(STInstruction):
-    def __init__(self, slot_id: STSlotID, value: bool):
-        super().__init__()
-        self._slot_id = slot_id
-        self._value = value
-
-    def as_set_bool(self):
-        return self
-
-    @property
-    def slot_id(self) -> STSlotID:
-        return self._slot_id
-    
-    @property
-    def value(self) -> bool:
-        return self._value
-    
-    def __str__(self):
-        return f'setbool {self.slot_id} {self.value}'
     
 class STSetIntInstruction(STInstruction):
     def __init__(self, slot_id: STSlotID, value: int):
