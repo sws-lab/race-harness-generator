@@ -27,7 +27,7 @@ void unload(enum rh_process_instance instance) {
 void acquire_conn(enum rh_process_instance instance) {
     (void) instance;
 
-    printf("ACQUIRE\n");
+    printf("ACQUIRE %d\n", instance);
     state->connections++;
 }
 
@@ -41,6 +41,6 @@ void use_conn(enum rh_process_instance instance) {
 void release_conn(enum rh_process_instance instance) {
     (void) instance;
     
-    printf("RELEASE\n");
+    printf("RELEASE %d\n", instance);
     state->connections--;
 }

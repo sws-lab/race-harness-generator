@@ -14,7 +14,9 @@ alive:
     loop if recv loaded then {
         send req_conn driver
         if recv unload then continue alive else if recv grant then {
+            do acquire_conn
             do use_conn
+            do release_conn
             send disconnect driver
         }
     }
