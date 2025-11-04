@@ -1,37 +1,13 @@
 import io
 from race_harness.control_flow import CFModule, CFNode
+from race_harness.codegen.base import BaseCodegen
 
-class ExecutableLBECodegen:
-    NO_NL = object()
-
+class ExecutableLBECodegen(BaseCodegen):
     def __init__(self, out: io.TextIOBase):
         self._out = out
 
     def codegen_module(self, module: CFModule):
         self._do_codegen(self._codegen_module, module)
-
-    def _do_codegen(self, callback, *args, **kwargs):
-        indent = 0
-        skip_newline = False
-        indent_next = True
-        for entry in callback(*args, **kwargs):
-            if isinstance(entry, int):
-                indent += entry
-            elif entry == ExecutableLBECodegen.NO_NL:
-                skip_newline = True
-            else:
-                lines = entry.split('\n')
-                for idx, line in enumerate(lines):
-                    if indent_next:
-                        self._out.write(indent * '  ')
-                    else:
-                        indent_next = True
-                    self._out.write(line)
-                    if not skip_newline or idx + 1 < len(lines):
-                        self._out.write('\n')
-                    else:
-                        indent_next = False
-                skip_newline = False
     
     def _codegen_module(self, module: CFModule):
         yield '''
@@ -113,7 +89,7 @@ class ExecutableLBECodegen:
                 yield -1
                 yield '}'
         elif label := node.as_labelled():
-            yield ExecutableLBECodegen.NO_NL
+            yield BaseCodegen.NO_NL
             yield f'label{label.label.label_id}: '
             yield from self._codegen_node(module, procedure_name, label.node)
         elif goto := node.as_goto():
@@ -122,17 +98,17 @@ class ExecutableLBECodegen:
             for idx, item in enumerate(branch.branches):
                 if idx == 0:
                     if len(branch.branches) > 1:
-                        yield ExecutableLBECodegen.NO_NL
+                        yield BaseCodegen.NO_NL
                         yield f'if (rand() % {len(branch.branches) - idx} == 0) '
                         yield from self._codegen_node(module, procedure_name, item)
                     else:
                         yield from self._codegen_node(module, procedure_name, item)
                 elif idx + 1 < len(branch.branches):
-                    yield ExecutableLBECodegen.NO_NL
+                    yield BaseCodegen.NO_NL
                     yield f'else if (rand() % {len(branch.branches) - idx} == 0) '
                     yield from self._codegen_node(module, procedure_name, item)
                 else:
-                    yield ExecutableLBECodegen.NO_NL
+                    yield BaseCodegen.NO_NL
                     yield 'else '
                     yield from self._codegen_node(module, procedure_name, item)
         elif node.as_return():
