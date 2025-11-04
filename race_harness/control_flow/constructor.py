@@ -75,8 +75,8 @@ class CFConstructor:
         module_state.cf_module.interface.declare_instance(instance.label)
 
         prologue = CFSequence(())
-        prologue.add_node(CFInitBarrier())
         prologue.add_node(self._construct_synchronization((), self._required_locks(module_state, instance, process.entry_block), None))
+        prologue.add_node(CFInitBarrier())
         prologue.add_node(CFGoto(entry_label))
         prologue.add_node(instance_state.top_level_sequence)
 

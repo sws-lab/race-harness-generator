@@ -79,13 +79,16 @@ class CLBECodegen:
 
         has_mutexes = False
         for mutex in module.mutexes:
-            yield f'pthread_mutex_t mtx{mutex.mutex_id};'
+            yield f'static pthread_mutex_t mtx{mutex.mutex_id};'
             has_mutexes = True
         if has_mutexes:
             yield ''
 
+        yield 'static pthread_barrier_t init_barrier;'
+        yield ''
+
         for procedure_name, procedure_body in module.procedures.items():
-            yield f'void *{procedure_name}(void *arg) {{'
+            yield f'static void *{procedure_name}(void *arg) {{'
             yield 1
             yield '(void) arg;'
             yield ''
@@ -108,6 +111,9 @@ class CLBECodegen:
 
         if has_mutexes:
             yield ''
+
+        yield f'pthread_barrier_init(&init_barrier, NULL, {len(module.procedures)});'
+        yield ''
 
         has_processes = False
         for procedure_name, procedure_body in module.procedures.items():
@@ -193,3 +199,5 @@ class CLBECodegen:
                 yield '}'
             for unlock in reversed(sorted(sync.unlock_mutexes)):
                 yield f'pthread_mutex_unlock(&mtx{unlock.mutex_id});'
+        elif node.as_init_barrier():
+            yield 'pthread_barrier_wait(&init_barrier);'
