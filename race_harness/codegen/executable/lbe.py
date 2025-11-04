@@ -1,16 +1,11 @@
 import io
-import string
-import random
-from race_harness.control_flow import CFModule, CFModuleInterface, CFNode
+from race_harness.control_flow import CFModule, CFNode
 
-class CLBECodegen:
+class ExecutableLBECodegen:
     NO_NL = object()
 
     def __init__(self, out: io.TextIOBase):
         self._out = out
-
-    def codegen_module_interface(self, module_iface: CFModuleInterface):
-        self._do_codegen(self._codegen_module_interface, module_iface)
 
     def codegen_module(self, module: CFModule):
         self._do_codegen(self._codegen_module, module)
@@ -22,7 +17,7 @@ class CLBECodegen:
         for entry in callback(*args, **kwargs):
             if isinstance(entry, int):
                 indent += entry
-            elif entry == CLBECodegen.NO_NL:
+            elif entry == ExecutableLBECodegen.NO_NL:
                 skip_newline = True
             else:
                 lines = entry.split('\n')
@@ -37,38 +32,6 @@ class CLBECodegen:
                     else:
                         indent_next = False
                 skip_newline = False
-
-    def _codegen_module_interface(self, module_iface: CFModuleInterface):
-        iface_guard = ''.join(random.choices(string.ascii_uppercase, k=16))
-        yield f'#ifndef RACE_HARNESS_INTERFACE_{iface_guard}_H_'
-        yield f'#define RACE_HARNESS_INTERFACE_{iface_guard}_H_'
-
-        instances = list(module_iface.instances)
-        for idx, instance in enumerate(instances):
-            if idx == 0:
-                yield ''
-                yield 'enum rh_process_instance {'
-                yield 1
-                
-            if idx + 1 < len(instances):
-                yield CLBECodegen.NO_NL
-                yield instance.upper()
-                yield ','
-            else:
-                yield instance.upper()
-        if instances:
-            yield -1
-            yield '};'
-
-        yield ''
-        for external_action in module_iface.external_actions:
-            yield f'extern void {external_action}(enum rh_process_instance);'
-        yield ''
-
-        yield '#endif'
-        yield ''
-
-        yield '#ifdef RH_IMPL'
     
     def _codegen_module(self, module: CFModule):
         yield '''
@@ -137,8 +100,6 @@ class CLBECodegen:
         yield -1
         yield '}'
 
-        yield '#endif'
-
     def _codegen_node(self, module: CFModule, procedure_name: str, node: CFNode, *, top_level_node: bool = False):
         if stmt := node.as_statement():
             yield f'{stmt.action}({procedure_name.upper()});'
@@ -152,7 +113,7 @@ class CLBECodegen:
                 yield -1
                 yield '}'
         elif label := node.as_labelled():
-            yield CLBECodegen.NO_NL
+            yield ExecutableLBECodegen.NO_NL
             yield f'label{label.label.label_id}: '
             yield from self._codegen_node(module, procedure_name, label.node)
         elif goto := node.as_goto():
@@ -161,21 +122,20 @@ class CLBECodegen:
             for idx, item in enumerate(branch.branches):
                 if idx == 0:
                     if len(branch.branches) > 1:
-                        yield CLBECodegen.NO_NL
+                        yield ExecutableLBECodegen.NO_NL
                         yield f'if (rand() % {len(branch.branches) - idx} == 0) '
                         yield from self._codegen_node(module, procedure_name, item)
                     else:
                         yield from self._codegen_node(module, procedure_name, item)
                 elif idx + 1 < len(branch.branches):
-                    yield CLBECodegen.NO_NL
+                    yield ExecutableLBECodegen.NO_NL
                     yield f'else if (rand() % {len(branch.branches) - idx} == 0) '
                     yield from self._codegen_node(module, procedure_name, item)
                 else:
-                    yield CLBECodegen.NO_NL
+                    yield ExecutableLBECodegen.NO_NL
                     yield 'else '
                     yield from self._codegen_node(module, procedure_name, item)
         elif node.as_return():
-            yield 'abort();'
             yield 'return NULL;'
         elif sync := node.as_synchronization():
             if sync.rollback_label is None:

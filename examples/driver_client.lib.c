@@ -1,4 +1,7 @@
-#include "driver_client.simu.c"
+#include <stdlib.h>
+#include <stdio.h>
+
+#include "driver_client.h"
 
 struct state {
     _Atomic int connections;
