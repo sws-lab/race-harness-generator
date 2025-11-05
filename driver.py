@@ -24,6 +24,7 @@ from race_harness.codegen.header import HeaderCodegen
 class RaceHarnessEncoding(enum.Enum):
     Executable = 'executable'
     Goblint = 'goblint'
+    GoblintKernel = 'goblint-kernel'
     Header = 'header'
     Rhir = 'rhir'
     Stir = 'stir'
@@ -80,7 +81,9 @@ class RaceHarnessDriver:
                 if encoding == RaceHarnessEncoding.Executable:
                     codegen = ExecutableLBECodegen(output)
                 elif encoding == RaceHarnessEncoding.Goblint:
-                    codegen = GoblintLBECodegen(output)
+                    codegen = GoblintLBECodegen(output, userspace=True)
+                elif encoding == RaceHarnessEncoding.GoblintKernel:
+                    codegen = GoblintLBECodegen(output, userspace=False)
                 elif encoding == RaceHarnessEncoding.Header:
                     codegen = HeaderCodegen(output)
                 else:
