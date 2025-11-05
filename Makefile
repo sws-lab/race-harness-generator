@@ -13,20 +13,20 @@ GOBLINT?=
 C_SOURCE := $(shell find pins-stir -name "*.c" -or -name "*.h")
 PYTHON_SOURCE := $(shell find race_harness/ -name "*.py")
 EXAMPLES_SOURCE := $(wildcard $(EXAMPLES_DIR)/*.rh)
+EXAMPLES_RHIR := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.rhir,$(EXAMPLES_SOURCE))
 EXAMPLES_STIR := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.stir,$(EXAMPLES_SOURCE))
-EXAMPLES_BIN := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.bin,$(EXAMPLES_SOURCE))
 EXAMPLES_CSV := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.csv,$(EXAMPLES_SOURCE))
+EXAMPLES_H := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.h,$(EXAMPLES_SOURCE))
 EXAMPLES_SIMU_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu.c,$(EXAMPLES_SOURCE))
 EXAMPLES_GOBLINT_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.goblint.c,$(EXAMPLES_SOURCE))
-EXAMPLES_H := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.h,$(EXAMPLES_SOURCE))
 EXAMPLES_SIMU_EXE := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu,$(EXAMPLES_SOURCE))
 EXAMPLES_GOBLINT_LOGS := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.goblint.log,$(EXAMPLES_SOURCE))
 
-all: all-simu-exe all-goblint-logs
+all: all-rhir all-stir all-simu-exe all-goblint-logs
+
+all-rhir: $(EXAMPLES_RHIR)
 
 all-stir: $(EXAMPLES_STIR)
-
-all-bin: $(EXAMPLES_BIN)
 
 all-csv: $(EXAMPLES_CSV)
 
@@ -42,28 +42,40 @@ clean:
 	rm -rf $(OUT_DIR)
 	cd pins-stir && $(MAKE) clean
 
-$(OUT_DIR)/%.stir: $(EXAMPLES_DIR)/%.rh $(PYTHON_SOURCE)
+$(OUT_DIR)/%.rhir: $(EXAMPLES_DIR)/%.rh $(PYTHON_SOURCE)
 	mkdir -p "$(shell dirname $@)"
-	uv run main.py $< > "$@.tmp"
+	./driver.py --encoding rhir $< --output "$@.tmp"
 	mv "$@.tmp" "$@"
 
-$(OUT_DIR)/%.bin: $(OUT_DIR)/%.stir $(LIBPINS_STIR_SO)
-	PINS_STIR_MODEL=$< PINS_STIR_OUTPUT="$@" $(LTSMIN_DIR)/bin/pins2lts-seq $(LIBPINS_STIR_SO)
+$(OUT_DIR)/%.stir: $(EXAMPLES_DIR)/%.rh $(PYTHON_SOURCE)
+	mkdir -p "$(shell dirname $@)"
+	./driver.py --encoding stir $< --output "$@.tmp"
+	mv "$@.tmp" "$@"
 
-$(OUT_DIR)/%.csv: $(OUT_DIR)/%.bin $(STIR_BIN_EXPORT)
-	$(STIR_BIN_EXPORT) $(patsubst %.csv,%.stir,$@) $< > "$@.tmp"
+$(OUT_DIR)/%.csv: $(EXAMPLES_DIR)/%.rh $(PYTHON_SOURCE) $(LIBPINS_STIR_SO) $(STIR_BIN_EXPORT)
+	mkdir -p "$(shell dirname $@)"
+	./driver.py --ltsmin "$(LTSMIN_DIR)" --pins-stir "$(PINS_STIR_DIR)" --encoding state_space $< --output "$@.tmp"
 	mv "$@.tmp" "$@"
 
 $(OUT_DIR)/%.h: $(OUT_DIR)/%.csv
-	uv run generate.py $(patsubst $(OUT_DIR)/%.h,$(EXAMPLES_DIR)/%.rh,$@) --reachability $< --encoding header > "$@.tmp"
+	./driver.py --encoding header --output "$@.tmp" \
+		--ltsmin "$(LTSMIN_DIR)" --pins-stir "$(PINS_STIR_DIR)" \
+		--state-space "$(patsubst $(OUT_DIR)/%.h,$(OUT_DIR)/%.csv,$@)" \
+		"$(patsubst $(OUT_DIR)/%.h,$(EXAMPLES_DIR)/%.rh,$@)"
 	mv "$@.tmp" "$@"
 
 $(OUT_DIR)/%.simu.c: $(OUT_DIR)/%.csv
-	uv run generate.py $(patsubst $(OUT_DIR)/%.simu.c,$(EXAMPLES_DIR)/%.rh,$@) --reachability $< > "$@.tmp"
+	./driver.py --encoding executable --output "$@.tmp" \
+		--ltsmin "$(LTSMIN_DIR)" --pins-stir "$(PINS_STIR_DIR)" \
+		--state-space "$(patsubst $(OUT_DIR)/%.simu.c,$(OUT_DIR)/%.csv,$@)" \
+		"$(patsubst $(OUT_DIR)/%.simu.c,$(EXAMPLES_DIR)/%.rh,$@)"
 	mv "$@.tmp" "$@"
 
 $(OUT_DIR)/%.goblint.c: $(OUT_DIR)/%.csv
-	uv run generate.py $(patsubst $(OUT_DIR)/%.goblint.c,$(EXAMPLES_DIR)/%.rh,$@) --reachability $< --encoding goblint > "$@.tmp"
+	./driver.py --encoding goblint --output "$@.tmp" \
+		--ltsmin "$(LTSMIN_DIR)" --pins-stir "$(PINS_STIR_DIR)" \
+		--state-space "$(patsubst $(OUT_DIR)/%.goblint.c,$(OUT_DIR)/%.csv,$@)" \
+		"$(patsubst $(OUT_DIR)/%.goblint.c,$(EXAMPLES_DIR)/%.rh,$@)"
 	mv "$@.tmp" "$@"
 
 $(OUT_DIR)/%.simu: $(EXAMPLES_DIR)/%.lib.c $(OUT_DIR)/%.simu.c $(OUT_DIR)/%.h
@@ -78,7 +90,6 @@ $(OUT_DIR)/%.goblint.log: $(EXAMPLES_DIR)/%.lib.c $(OUT_DIR)/%.goblint.c $(OUT_D
 $(LIBPINS_STIR_SO): $(C_SOURCE)
 	cd pins-stir && $(MAKE) all
 
-$(STIR_BIN_EXPORT): $(C_SOURCE)
-	cd pins-stir && $(MAKE) all
+$(STIR_BIN_EXPORT): $(LIBPINS_STIR_SO)
 
-.PHONY: all all-stir all-bin all-csv all-simu-c all-goblint-c all-goblint-logs clean
+.PHONY: all all-rhir all-stir all-csv all-simu-c all-goblint-c all-goblint-logs clean
