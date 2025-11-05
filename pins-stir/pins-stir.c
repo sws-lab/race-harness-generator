@@ -105,7 +105,7 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
     if (src[transition->component_slot_id] != transition->src_node) {
         return 0;
     }
-    int satisfies_cond = 1;
+    int satisfies_cond = !transition->invert_guard;
     for (size_t i = 0; i < transition->num_of_guards; i++) {
         switch (transition->guards[i].type) {
             case STIR_MODEL_GUARD_INT:

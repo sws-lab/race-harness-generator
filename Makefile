@@ -22,7 +22,7 @@ EXAMPLES_H := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.h,$(EXAMPLES_SOURCE))
 EXAMPLES_SIMU_EXE := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu,$(EXAMPLES_SOURCE))
 EXAMPLES_GOBLINT_LOGS := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.goblint.log,$(EXAMPLES_SOURCE))
 
-all: $(EXAMPLES_SIMU_EXE) $(EXAMPLES_GOBLINT_C)
+all: all-simu-exe all-goblint-logs
 
 all-stir: $(EXAMPLES_STIR)
 

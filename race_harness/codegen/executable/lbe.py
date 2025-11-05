@@ -114,25 +114,26 @@ class ExecutableLBECodegen(BaseCodegen):
         elif node.as_return():
             yield 'return NULL;'
         elif sync := node.as_synchronization():
-            if sync.rollback_label is None:
-                yield 'for (;;) {'
-                yield 1
-            lock_order = list(sorted(sync.lock_mutexes))
-            for idx, lock in enumerate(lock_order):
-                yield f'if (pthread_mutex_trylock(&mtx{lock.mutex_id})) {{'
-                yield 1
-                for unlock in reversed(lock_order[:idx]):
-                    yield f'pthread_mutex_unlock(&mtx{unlock.mutex_id});'
+            if sync.lock_mutexes:
                 if sync.rollback_label is None:
-                    yield 'continue;'
-                else:
-                    yield f'goto label{sync.rollback_label.label_id};'
-                yield -1
-                yield '}'
-            if sync.rollback_label is None:
-                yield 'break;'
-                yield -1
-                yield '}'
+                    yield 'for (;;) {'
+                    yield 1
+                lock_order = list(sorted(sync.lock_mutexes))
+                for idx, lock in enumerate(lock_order):
+                    yield f'if (pthread_mutex_trylock(&mtx{lock.mutex_id})) {{'
+                    yield 1
+                    for unlock in reversed(lock_order[:idx]):
+                        yield f'pthread_mutex_unlock(&mtx{unlock.mutex_id});'
+                    if sync.rollback_label is None:
+                        yield 'continue;'
+                    else:
+                        yield f'goto label{sync.rollback_label.label_id};'
+                    yield -1
+                    yield '}'
+                if sync.rollback_label is None:
+                    yield 'break;'
+                    yield -1
+                    yield '}'
             for unlock in reversed(sorted(sync.unlock_mutexes)):
                 yield f'pthread_mutex_unlock(&mtx{unlock.mutex_id});'
         elif node.as_init_barrier():
