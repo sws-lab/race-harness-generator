@@ -37,7 +37,7 @@ class RaceHarnessDriver:
         self._quiet = quiet
         self._parser = RHParser()
 
-    def run(self, model: io.TextIOBase, *, output: io.TextIOBase, encoding: RaceHarnessEncoding, header: Optional[io.TextIOBase], state_space: Optional[pathlib.Path]):
+    def run(self, model: io.TextIOBase, *, output: io.TextIOBase, encoding: RaceHarnessEncoding, embed_header: bool = False, state_space: Optional[pathlib.Path]):
         rh_context = RHContext()
         rh_module = self._parser.parse(model.read(), rh_context)
         optimize_module_control_flow(rh_context, rh_module)
@@ -77,6 +77,10 @@ class RaceHarnessDriver:
 
                 cf_constructor = CFConstructor(rh_context, mutex)
                 cf_module = cf_constructor.construct_module(rh_module)
+                
+                if embed_header and encoding != RaceHarnessEncoding.Header:
+                    codegen = HeaderCodegen(output)
+                    codegen.codegen_module(cf_module)
 
                 if encoding == RaceHarnessEncoding.Executable:
                     codegen = ExecutableLBECodegen(output)
@@ -89,10 +93,6 @@ class RaceHarnessDriver:
                 else:
                     raise RuntimeError(f'Unexpected encoding: {encoding.value}')
                 codegen.codegen_module(cf_module)
-                
-                if header is not None:
-                    codegen = HeaderCodegen(header)
-                    codegen.codegen_module(cf_module)
 
     def _model_check(self, st_module: STModule) -> Iterable[str]:
         if self._ltsmin is None:
@@ -150,13 +150,12 @@ if __name__ == '__main__':
     argparser.add_argument('--ltsmin', type=str, required=False, help='LTSmin installation directory')
     argparser.add_argument('--pins-stir', type=str, required=False, help='PINS-STIR plugin directory')
     argparser.add_argument('--encoding', type=str, default=RaceHarnessEncoding.Executable.value, choices=[enc.value for enc in RaceHarnessEncoding], help='Generated race harness encoding')
-    argparser.add_argument('--header', type=str, required=False, help='File to output header for generated race harness encoding')
+    argparser.add_argument('--embed-header', default=False, action='store_true', help='Embed header into the generated harness')
     argparser.add_argument('--state-space', type=str, required=False, help='Precomputed state space CSV file')
     argparser.add_argument('--output', type=str, default=None, required=False, help='Output file')
     argparser.add_argument('--quiet', default=False, action='store_true', help='Suppress tool output')
     argparser.add_argument('model', type=str, help='Race harness model')
     args = argparser.parse_args(sys.argv[1:])
-    
     
     driver = RaceHarnessDriver(
         ltsmin=pathlib.Path(args.ltsmin) if args.ltsmin else None,
@@ -164,22 +163,17 @@ if __name__ == '__main__':
         quiet=args.quiet
     )
     with open(args.model) as model_file:
-        header = None
         output = sys.stdout
         try:
-            if args.header:
-                header = open(args.header, 'w')
             if args.output:
                 output = open(args.output, 'w')
             driver.run(
                 model_file,
                 output=output,
                 encoding=RaceHarnessEncoding(args.encoding),
-                header=header,
+                embed_header=args.embed_header,
                 state_space=pathlib.Path(args.state_space) if args.state_space else None
             )
         finally:
-            if header:
-                header.close()
             if output != sys.stdout:
                 output.close()

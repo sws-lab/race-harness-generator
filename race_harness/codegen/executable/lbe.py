@@ -30,6 +30,7 @@ class ExecutableLBECodegen(BaseCodegen):
             yield f'static void *{procedure_name}(void *arg) {{'
             yield 1
             yield '(void) arg;'
+            yield 'void *payload = NULL;'
             yield ''
             yield from self._codegen_node(module, procedure_name, procedure_body, top_level_node=True)
             yield 'return NULL;'
@@ -78,7 +79,7 @@ class ExecutableLBECodegen(BaseCodegen):
 
     def _codegen_node(self, module: CFModule, procedure_name: str, node: CFNode, *, top_level_node: bool = False):
         if stmt := node.as_statement():
-            yield f'{stmt.action}({procedure_name.upper()});'
+            yield f'{stmt.action}(RH_PROC_{procedure_name.upper()}, &payload);'
         elif seq := node.as_sequence():
             if not top_level_node:
                 yield '{'

@@ -17,25 +17,19 @@ class HeaderCodegen(BaseCodegen):
         yield f'#define RACE_HARNESS_INTERFACE_{iface_guard}_H_'
 
         instances = list(module_iface.instances)
-        for idx, instance in enumerate(instances):
-            if idx == 0:
-                yield ''
-                yield 'enum rh_process_instance {'
-                yield 1
-                
-            if idx + 1 < len(instances):
-                yield BaseCodegen.NO_NL
-                yield instance.upper()
-                yield ','
-            else:
-                yield instance.upper()
-        if instances:
-            yield -1
-            yield '};'
+        yield 'enum rh_process_instance {'
+        yield 1
+        for instance in instances:
+            yield BaseCodegen.NO_NL
+            yield f'RH_PROC_{instance.upper()}'
+            yield ','
+        yield 'RH_NUM_OF_PROCESSES'
+        yield -1
+        yield '};'
 
         yield ''
         for external_action in module_iface.external_actions:
-            yield f'extern void {external_action}(enum rh_process_instance);'
+            yield f'extern void {external_action}(enum rh_process_instance, void **);'
         yield ''
 
         yield '#endif'
