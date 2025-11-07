@@ -18,11 +18,13 @@ EXAMPLES_STIR := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.stir,$(EXAMPLES_SO
 EXAMPLES_CSV := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.csv,$(EXAMPLES_SOURCE))
 EXAMPLES_H := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.h,$(EXAMPLES_SOURCE))
 EXAMPLES_SIMU_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu.c,$(EXAMPLES_SOURCE))
+EXAMPLES_STIR_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.stir.c,$(EXAMPLES_SOURCE))
 EXAMPLES_GOBLINT_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.goblint.c,$(EXAMPLES_SOURCE))
 EXAMPLES_SIMU_EXE := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu,$(EXAMPLES_SOURCE))
+EXAMPLES_SIMU_STIR_EXE := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu.stir,$(EXAMPLES_SOURCE))
 EXAMPLES_GOBLINT_LOGS := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.goblint.log,$(EXAMPLES_SOURCE))
 
-all: all-rhir all-stir all-simu-exe all-goblint-logs
+all: all-rhir all-stir all-simu-exe all-goblint-logs all-stir-c all-simu-stir-exe
 
 all-rhir: $(EXAMPLES_RHIR)
 
@@ -33,6 +35,10 @@ all-csv: $(EXAMPLES_CSV)
 all-simu-c: $(EXAMPLES_SIMU_C) $(EXAMPLES_H)
 
 all-simu-exe: $(EXAMPLES_SIMU_EXE)
+
+all-stir-c: $(EXAMPLES_STIR_C)
+
+all-simu-stir-exe: $(EXAMPLES_SIMU_STIR_EXE)
 
 all-goblint-c: $(EXAMPLES_GOBLINT_C) $(EXAMPLES_H)
 
@@ -71,6 +77,11 @@ $(OUT_DIR)/%.simu.c: $(OUT_DIR)/%.csv
 		"$(patsubst $(OUT_DIR)/%.simu.c,$(EXAMPLES_DIR)/%.rh,$@)"
 	mv "$@.tmp" "$@"
 
+$(OUT_DIR)/%.stir.c: $(OUT_DIR)/%.csv
+	./driver.py --encoding executable-stir --output "$@.tmp" \
+		"$(patsubst $(OUT_DIR)/%.stir.c,$(EXAMPLES_DIR)/%.rh,$@)"
+	mv "$@.tmp" "$@"
+
 $(OUT_DIR)/%.goblint.c: $(OUT_DIR)/%.csv
 	./driver.py --encoding goblint --output "$@.tmp" \
 		--ltsmin "$(LTSMIN_DIR)" --pins-stir "$(PINS_STIR_DIR)" \
@@ -80,6 +91,9 @@ $(OUT_DIR)/%.goblint.c: $(OUT_DIR)/%.csv
 
 $(OUT_DIR)/%.simu: $(EXAMPLES_DIR)/%.lib.c $(OUT_DIR)/%.simu.c $(OUT_DIR)/%.h
 	$(SIMU_CC) -I$(OUT_DIR) -include $(patsubst $(OUT_DIR)/%.simu,$(OUT_DIR)/%.h,$@) $(SIMU_CFLAGS) -o "$@" $< $(patsubst $(OUT_DIR)/%.simu,$(OUT_DIR)/%.simu.c,$@)
+
+$(OUT_DIR)/%.simu.stir: $(OUT_DIR)/%.stir.c
+	$(SIMU_CC) $(SIMU_CFLAGS) -o "$@" $< -latomic
 
 $(OUT_DIR)/%.goblint.log: $(EXAMPLES_DIR)/%.lib.c $(OUT_DIR)/%.goblint.c $(OUT_DIR)/%.h
 	$(GOBLINT) --set pre.includes[+] $(OUT_DIR) --set pre.cppflags[+] -include --set pre.cppflags[+] $(patsubst $(OUT_DIR)/%.goblint.log,$(OUT_DIR)/%.h,$@) \
@@ -92,4 +106,4 @@ $(LIBPINS_STIR_SO): $(C_SOURCE)
 
 $(STIR_BIN_EXPORT): $(LIBPINS_STIR_SO)
 
-.PHONY: all all-rhir all-stir all-csv all-simu-c all-goblint-c all-goblint-logs clean
+.PHONY: all all-rhir all-stir all-csv all-simu-c all-goblint-c all-goblint-logs all-stir-c all-simu-stir-exe clean

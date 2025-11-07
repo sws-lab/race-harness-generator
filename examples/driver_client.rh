@@ -11,9 +11,9 @@ channel drvmsg {
 
 proc pclient in drvmsg out cltmsg {
 alive:
-    loop if recv loaded then {
-        send req_conn driver
-        if recv unload then continue alive else if recv grant then {
+    loop {
+        if recv loaded then send req_conn driver
+        else if recv unload then continue alive else if recv grant then {
             do acquire_conn
             use: loop if nondet then do use_conn else break use
             do release_conn

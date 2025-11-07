@@ -20,6 +20,7 @@ from race_harness.control_flow import CFConstructor
 from race_harness.codegen.goblint import GoblintLBECodegen
 from race_harness.codegen.executable import ExecutableLBECodegen
 from race_harness.codegen.header import HeaderCodegen
+from race_harness.codegen.state_transition import ExecutableStirCodegen
 
 class RaceHarnessEncoding(enum.Enum):
     Executable = 'executable'
@@ -29,6 +30,7 @@ class RaceHarnessEncoding(enum.Enum):
     Rhir = 'rhir'
     Stir = 'stir'
     StateSpace = 'state_space'
+    ExecutableStir = 'executable-stir'
 
 class RaceHarnessDriver:
     def __init__(self, *, ltsmin: Optional[pathlib.Path], pins_stir: Optional[pathlib.Path], quiet: bool = False):
@@ -52,6 +54,9 @@ class RaceHarnessDriver:
             if encoding == RaceHarnessEncoding.Stir:
                 serializer = STSerialize(output)
                 serializer.serialize_module(st_module)
+            elif encoding == RaceHarnessEncoding.ExecutableStir:
+                codegen = ExecutableStirCodegen(output)
+                codegen.codegen_module(st_module)
             elif encoding == RaceHarnessEncoding.StateSpace:
                 for line in self._model_check(st_module):
                     output.write(line)
