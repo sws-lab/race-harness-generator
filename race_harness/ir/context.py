@@ -49,8 +49,8 @@ class RHContext:
         self._add_entity(predicate)
         return predicate
     
-    def new_process(self, proto: RHRef, entry_block: RHRef, control_flow: RHRef) -> RHProcess:
-        proc = RHProcess(self._new_ref(), self[proto].to_protocol(), self[entry_block].to_effect_block(), self[control_flow].to_control_flow())
+    def new_process(self, proto: RHRef, label: str, entry_block: RHRef, control_flow: RHRef) -> RHProcess:
+        proc = RHProcess(self._new_ref(), label, self[proto].to_protocol(), self[entry_block].to_effect_block(), self[control_flow].to_control_flow())
         self._add_entity(proc)
         return proc
     

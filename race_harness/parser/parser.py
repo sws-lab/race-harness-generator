@@ -36,12 +36,12 @@ class RHInterp(lark.visitors.Interpreter):
             if proc[0] is not None:
                 type, payload = proc[0]
                 if type == 'proto':
-                    protos[payload[0]] = payload[1]
+                    protos[payload[0]] = (payload[1], payload[2])
                 elif type == 'instance':
                     instances.extend(payload)
 
         processes = list()
-        for proto, tree in protos.items():
+        for proto, (name, tree) in protos.items():
             proc_scope = RHScope(self._scope)
             self._scopes.append(proc_scope)
             self._proto = proto
@@ -51,7 +51,7 @@ class RHInterp(lark.visitors.Interpreter):
             self._control_flow = self._ctx.new_control_flow()
             self.visit(tree)
             self._link_blocks()
-            processes.append(self._ctx.new_process(proto.ref, entry_block.ref, self._control_flow.ref).ref)
+            processes.append(self._ctx.new_process(proto.ref, name, entry_block.ref, self._control_flow.ref).ref)
             self._block_succs = None
             self._control_flow = None
             self._proto = None
@@ -77,7 +77,7 @@ class RHInterp(lark.visitors.Interpreter):
         in_proto, out_proto = self.visit(tree.children[2])
         decl = self._ctx.new_protocol(decl_name, in_proto, out_proto)
         self._scope.bind(decl_name, decl.ref)
-        return ('proto', (decl, tree.children[3]))
+        return ('proto', (decl, decl_name, tree.children[3]))
 
     def proc_protocol_decl(self, tree: lark.Tree):
         in_proto, out_proto = None, None

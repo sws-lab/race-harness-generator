@@ -80,7 +80,7 @@ class CFConstructor:
         prologue.add_node(CFGoto(entry_label))
         prologue.add_node(instance_state.top_level_sequence)
 
-        module_state.cf_module.add_procedure(instance.label, prologue)
+        module_state.cf_module.add_procedure(instance.label, process.label, prologue)
     
     def _construct_block(self, module_state: ModuleConstructionState, instance_state: InstanceConstructionState, block: RHEffectBlock) -> CFLabelledNode:
         if block.ref in instance_state.block_label_map:

@@ -70,8 +70,9 @@ $(OUT_DIR)/%.h: $(OUT_DIR)/%.csv
 		"$(patsubst $(OUT_DIR)/%.h,$(EXAMPLES_DIR)/%.rh,$@)"
 	mv "$@.tmp" "$@"
 
-$(OUT_DIR)/%.simu.c: $(OUT_DIR)/%.csv
+$(OUT_DIR)/%.simu.c: $(OUT_DIR)/%.csv $(EXAMPLES_DIR)/%.lib.toml
 	./driver.py --encoding executable --output "$@.tmp" \
+		--payloads "$(patsubst $(OUT_DIR)/%.simu.c,$(EXAMPLES_DIR)/%.lib.toml,$@)" \
 		--ltsmin "$(LTSMIN_DIR)" --pins-stir "$(PINS_STIR_DIR)" \
 		--state-space "$(patsubst $(OUT_DIR)/%.simu.c,$(OUT_DIR)/%.csv,$@)" \
 		"$(patsubst $(OUT_DIR)/%.simu.c,$(EXAMPLES_DIR)/%.rh,$@)"
@@ -82,8 +83,9 @@ $(OUT_DIR)/%.stir.c: $(OUT_DIR)/%.csv
 		"$(patsubst $(OUT_DIR)/%.stir.c,$(EXAMPLES_DIR)/%.rh,$@)"
 	mv "$@.tmp" "$@"
 
-$(OUT_DIR)/%.goblint.c: $(OUT_DIR)/%.csv
+$(OUT_DIR)/%.goblint.c: $(OUT_DIR)/%.csv $(EXAMPLES_DIR)/%.lib.toml
 	./driver.py --encoding goblint --output "$@.tmp" \
+		--payloads "$(patsubst $(OUT_DIR)/%.goblint.c,$(EXAMPLES_DIR)/%.lib.toml,$@)" \
 		--ltsmin "$(LTSMIN_DIR)" --pins-stir "$(PINS_STIR_DIR)" \
 		--state-space "$(patsubst $(OUT_DIR)/%.goblint.c,$(OUT_DIR)/%.csv,$@)" \
 		"$(patsubst $(OUT_DIR)/%.goblint.c,$(EXAMPLES_DIR)/%.rh,$@)"

@@ -1,5 +1,5 @@
 import abc
-from typing import Optional, Iterable, List, Dict
+from typing import Optional, Iterable, List, Dict, Tuple
 from race_harness.util.coerce import with_coercion_methods
 
 class CFMutexID:
@@ -202,11 +202,11 @@ class CFModule(CFNode):
         return self._interface
 
     @property
-    def procedures(self) -> Dict[str, CFNode]:
+    def procedures(self) -> Dict[str, Tuple[str, CFNode]]:
         return self._procedures
     
-    def add_procedure(self, name: str, body: CFNode):
-        self._procedures[name] = body
+    def add_procedure(self, name: str, process_name: str, body: CFNode):
+        self._procedures[name] = (process_name, body)
 
     def new_mutex(self) -> CFMutexID:
         mutex_id = CFMutexID(self._next_mutex_id)

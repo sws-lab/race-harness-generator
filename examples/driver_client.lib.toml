@@ -1,0 +1,51 @@
+[preamble.global]
+embed_header = true
+code = """
+#include <stdlib.h>
+#include <stdio.h>
+
+struct state {
+    _Atomic int connections;
+    _Atomic int value;
+};
+
+static struct state *state = NULL;
+"""
+
+[preamble.local.pclient]
+code = '''
+unsigned long rounds = 0;
+'''
+
+[payload.load]
+code = '''
+printf("LOAD\n");
+state = malloc(sizeof(struct state));
+state->connections = 0;
+state->value = 0;
+'''
+
+[payload.unload]
+code = '''
+printf("UNLOAD\n");
+free(state);
+state = NULL;
+'''
+
+[payload.acquire_conn]
+code = '''
+printf("ACQUIRE %d %zu\n", RH_PROCESS_ID, rounds++);
+state->connections++;
+'''
+
+[payload.use_conn]
+code = '''
+printf("USE %d\n", RH_PROCESS_ID);
+state->value++;
+'''
+
+[payload.release_conn]
+code = '''
+printf("RELEASE %d\n", RH_PROCESS_ID);
+state->connections--;
+'''

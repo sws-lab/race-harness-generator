@@ -1,16 +1,19 @@
 import io
+from typing import Optional
 from race_harness.control_flow import CFModule, CFNode
 from race_harness.codegen.base import BaseCodegen
+from race_harness.codegen.payloads import CodegenPayloads
+from race_harness.codegen.header import HeaderCodegen
 
 class GoblintLBECodegen(BaseCodegen):
     def __init__(self, out: io.TextIOBase, *, userspace: bool = True):
         self._out = out
         self._userspace = userspace
 
-    def codegen_module(self, module: CFModule):
-        self._do_codegen(self._codegen_module, module)
+    def codegen_module(self, module: CFModule, payloads: Optional[CodegenPayloads]):
+        self._do_codegen(self._codegen_module, module, payloads)
     
-    def _codegen_module(self, module: CFModule):
+    def _codegen_module(self, module: CFModule, payloads: Optional[CodegenPayloads]):
         if self._userspace:
             yield '''
 #include <stdlib.h>
@@ -44,6 +47,13 @@ extern void __harness_mutex_lock(__harness_mutex_t *);
 extern void __harness_mutex_unlock(__harness_mutex_t *);
 extern int __harness_rand(void);
 '''
+
+        if payloads and payloads.embed_header:
+            header_codegen = HeaderCodegen(self._out)
+            header_codegen.codegen_module(module, payloads)
+
+        if payloads and payloads.preamble:
+            yield payloads.preamble
             
 
         has_mutexes = False
@@ -57,13 +67,19 @@ extern int __harness_rand(void);
         yield f'#define INIT_BARRIER_CAPACITY {len(module.procedures)}'
         yield ''
 
-        for procedure_name, procedure_body in module.procedures.items():
+        for procedure_name, (process_name, procedure_body) in module.procedures.items():
             yield f'static void *{procedure_name}(void *arg) {{'
             yield 1
             yield '(void) arg;'
-            yield 'void *payload = __harness_NULL;'
+            yield f'#define RH_PROCESS_ID RH_PROC_{procedure_name.upper()}'
+            yield 'void *rh_hook_payload = NULL;'
+            local_preamble = payloads.get_local_preamble(process_name) if payloads else None
+            if local_preamble:
+                yield ''
+                yield local_preamble
             yield ''
-            yield from self._codegen_node(module, procedure_name, procedure_body, top_level_node=True)
+            yield from self._codegen_node(module, payloads, procedure_name, procedure_body, top_level_node=True)
+            yield '#undef RH_PROCESS_ID'
             yield 'return __harness_NULL;'
             yield -1
             yield '}'
@@ -105,22 +121,26 @@ extern int __harness_rand(void);
         yield -1
         yield '}'
 
-    def _codegen_node(self, module: CFModule, procedure_name: str, node: CFNode, *, top_level_node: bool = False):
+    def _codegen_node(self, module: CFModule, payloads: CodegenPayloads, procedure_name: str, node: CFNode, *, top_level_node: bool = False):
         if stmt := node.as_statement():
-            yield f'{stmt.action}(RH_PROC_{procedure_name.upper()}, &payload);'
+            payload = payloads.get_payload(stmt.action) if payloads else None
+            if payload:
+                yield payload
+            else:
+                yield f'{stmt.action}(RH_PROC_{procedure_name.upper()}, &rh_hook_payload);'
         elif seq := node.as_sequence():
             if not top_level_node:
                 yield '{'
                 yield 1
             for item in seq.sequence:
-                yield from self._codegen_node(module, procedure_name, item)
+                yield from self._codegen_node(module, payloads, procedure_name, item)
             if not top_level_node:
                 yield -1
                 yield '}'
         elif label := node.as_labelled():
             yield BaseCodegen.NO_NL
             yield f'label{label.label.label_id}: '
-            yield from self._codegen_node(module, procedure_name, label.node)
+            yield from self._codegen_node(module, payloads, procedure_name, label.node)
         elif goto := node.as_goto():
             yield f'goto label{goto.label.label_id};'
         elif branch := node.as_branch():
@@ -129,17 +149,17 @@ extern int __harness_rand(void);
                     if len(branch.branches) > 1:
                         yield BaseCodegen.NO_NL
                         yield f'if (__harness_rand() % {len(branch.branches) - idx} == 0) '
-                        yield from self._codegen_node(module, procedure_name, item)
+                        yield from self._codegen_node(module, payloads, procedure_name, item)
                     else:
-                        yield from self._codegen_node(module, procedure_name, item)
+                        yield from self._codegen_node(module, payloads, procedure_name, item)
                 elif idx + 1 < len(branch.branches):
                     yield BaseCodegen.NO_NL
                     yield f'else if (__harness_rand() % {len(branch.branches) - idx} == 0) '
-                    yield from self._codegen_node(module, procedure_name, item)
+                    yield from self._codegen_node(module, payloads, procedure_name, item)
                 else:
                     yield BaseCodegen.NO_NL
                     yield 'else '
-                    yield from self._codegen_node(module, procedure_name, item)
+                    yield from self._codegen_node(module, payloads, procedure_name, item)
         elif node.as_return():
             yield 'return __harness_NULL;'
         elif sync := node.as_synchronization():

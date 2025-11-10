@@ -21,6 +21,7 @@ from race_harness.codegen.goblint import GoblintLBECodegen
 from race_harness.codegen.executable import ExecutableLBECodegen
 from race_harness.codegen.header import HeaderCodegen
 from race_harness.codegen.state_transition import ExecutableStirCodegen
+from race_harness.codegen.payloads import CodegenPayloads
 
 class RaceHarnessEncoding(enum.Enum):
     Executable = 'executable'
@@ -39,7 +40,7 @@ class RaceHarnessDriver:
         self._quiet = quiet
         self._parser = RHParser()
 
-    def run(self, model: io.TextIOBase, *, output: io.TextIOBase, encoding: RaceHarnessEncoding, embed_header: bool = False, state_space: Optional[pathlib.Path]):
+    def run(self, model: io.TextIOBase, *, output: io.TextIOBase, encoding: RaceHarnessEncoding, embed_header: bool = False, state_space: Optional[pathlib.Path], payloads: Optional[CodegenPayloads]):
         rh_context = RHContext()
         rh_module = self._parser.parse(model.read(), rh_context)
         optimize_module_control_flow(rh_context, rh_module)
@@ -85,7 +86,7 @@ class RaceHarnessDriver:
                 
                 if embed_header and encoding != RaceHarnessEncoding.Header:
                     codegen = HeaderCodegen(output)
-                    codegen.codegen_module(cf_module)
+                    codegen.codegen_module(cf_module, payloads)
 
                 if encoding == RaceHarnessEncoding.Executable:
                     codegen = ExecutableLBECodegen(output)
@@ -97,7 +98,7 @@ class RaceHarnessDriver:
                     codegen = HeaderCodegen(output)
                 else:
                     raise RuntimeError(f'Unexpected encoding: {encoding.value}')
-                codegen.codegen_module(cf_module)
+                codegen.codegen_module(cf_module, payloads)
 
     def _model_check(self, st_module: STModule) -> Iterable[str]:
         if self._ltsmin is None:
@@ -157,6 +158,7 @@ if __name__ == '__main__':
     argparser.add_argument('--encoding', type=str, default=RaceHarnessEncoding.Executable.value, choices=[enc.value for enc in RaceHarnessEncoding], help='Generated race harness encoding')
     argparser.add_argument('--embed-header', default=False, action='store_true', help='Embed header into the generated harness')
     argparser.add_argument('--state-space', type=str, required=False, help='Precomputed state space CSV file')
+    argparser.add_argument('--payloads', type=str, required=False, help='Payloads to embed into the generated harness')
     argparser.add_argument('--output', type=str, default=None, required=False, help='Output file')
     argparser.add_argument('--quiet', default=False, action='store_true', help='Suppress tool output')
     argparser.add_argument('model', type=str, help='Race harness model')
@@ -169,15 +171,20 @@ if __name__ == '__main__':
     )
     with open(args.model) as model_file:
         output = sys.stdout
+        payloads = None
         try:
             if args.output:
                 output = open(args.output, 'w')
+            if args.payloads:
+                with open(args.payloads, 'rb') as payloads_file:
+                    payloads = CodegenPayloads.load(payloads_file)
             driver.run(
                 model_file,
                 output=output,
                 encoding=RaceHarnessEncoding(args.encoding),
                 embed_header=args.embed_header,
-                state_space=pathlib.Path(args.state_space) if args.state_space else None
+                state_space=pathlib.Path(args.state_space) if args.state_space else None,
+                payloads=payloads
             )
         finally:
             if output != sys.stdout:
