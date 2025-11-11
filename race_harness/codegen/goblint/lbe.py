@@ -63,8 +63,8 @@ extern int __harness_rand(void);
         if has_mutexes:
             yield ''
 
-        yield 'static _Atomic unsigned int init_barrier = 0;'
-        yield f'#define INIT_BARRIER_CAPACITY {len(module.procedures)}'
+        for procedure_name, (process_name, procedure_body) in module.procedures.items():
+            yield f'static _Atomic {procedure_name}_init_barrier = 0;'
         yield ''
 
         for procedure_name, (process_name, procedure_body) in module.procedures.items():
@@ -168,5 +168,9 @@ extern int __harness_rand(void);
             for unlock in reversed(sorted(sync.unlock_mutexes)):
                 yield f'__harness_mutex_unlock(&mtx{unlock.mutex_id});'
         elif node.as_init_barrier():
-            yield 'init_barrier++;'
-            yield 'while (init_barrier < INIT_BARRIER_CAPACITY) {}'
+            yield f'{procedure_name}_init_barrier = 1;'
+            other_procedure_cond = ' || '.join(
+                f'{other_procedure_name}_init_barrier == 0'
+                for other_procedure_name in module.procedures.keys()
+            )
+            yield f'while ({other_procedure_cond}) {{}}'
