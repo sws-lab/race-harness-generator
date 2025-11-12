@@ -96,7 +96,7 @@ class ExecutableLBECodegen(BaseCodegen):
     def _codegen_node(self, module: CFModule, payloads: Optional[CodegenPayloads], procedure_name: str, node: CFNode, *, top_level_node: bool = False):
         if stmt := node.as_statement():
             payload = payloads.get_payload(stmt.action) if payloads else None
-            if payload:
+            if payload is not None:
                 yield payload
             else:
                 yield f'{stmt.action}(RH_PROC_{procedure_name.upper()}, &rh_hook_payload);'
