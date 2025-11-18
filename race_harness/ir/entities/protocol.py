@@ -29,6 +29,6 @@ class RHProtocol(RHEntity):
             )) if self._in_proto else '',
             ' out {}'.format(', '.join(
                 str(chan.ref)
-                for chan in self.in_protocol
+                for chan in self.out_protocol
             )) if self._in_proto else ''
         )
