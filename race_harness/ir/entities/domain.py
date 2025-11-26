@@ -19,6 +19,9 @@ class RHDomain(RHEntity):
 
     def __contains__(self, value):
         return value in self._items
+    
+    def __len__(self):
+        return len(self._items)
 
     def __str__(self):
         return 'domain {} {{{}}}'.format(

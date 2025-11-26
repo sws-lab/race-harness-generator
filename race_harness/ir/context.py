@@ -90,6 +90,9 @@ class RHContext:
         if entity is None:
             raise RHError(f'Reference {ref} does not belong to the context')
         return entity
+    
+    def __len__(self):
+        return self._next_ref
 
     def _new_ref(self) -> RHRef:
         ref = RHRef(uid=self._next_ref, context=self)

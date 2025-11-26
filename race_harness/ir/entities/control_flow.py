@@ -26,7 +26,7 @@ class RHUnconditionalControlFlowEdge(RHControlFlowEdge):
 class RHConditionalControlFlowEdge(RHControlFlowEdge):
     target: RHEffectBlock
     alternative: RHEffectBlock
-    condition: RHEffectBlock
+    condition: RHPredicate
 
     @property
     def successors(self) -> Iterable[RHEffectBlock]:
@@ -67,6 +67,10 @@ class RHControlFlow(RHEntity):
     
     def edges_to(self, target: RHRef) -> Iterable[RHRef]:
         yield from self._reverse_edges.get(target, ())
+
+    @property
+    def edges(self) -> Iterable[RHControlFlowEdge]:
+        yield from self._edges.values()
 
     def _register_reverse(self, source: RHEffectBlock, target: RHEffectBlock):
         if target.ref not in self._reverse_edges:

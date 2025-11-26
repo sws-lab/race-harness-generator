@@ -22,6 +22,7 @@ from race_harness.codegen.executable import ExecutableLBECodegen
 from race_harness.codegen.header import HeaderCodegen
 from race_harness.codegen.state_transition import ExecutableStirCodegen
 from race_harness.codegen.payloads import CodegenPayloads
+from race_harness.codegen.canonical import CanonicalCodegen
 
 class RaceHarnessEncoding(enum.Enum):
     Executable = 'executable'
@@ -32,6 +33,7 @@ class RaceHarnessEncoding(enum.Enum):
     Stir = 'stir'
     StateSpace = 'state_space'
     ExecutableStir = 'executable-stir'
+    Canonical = 'canonical'
 
 class RaceHarnessDriver:
     def __init__(self, *, ltsmin: Optional[pathlib.Path], pins_stir: Optional[pathlib.Path], quiet: bool = False):
@@ -47,6 +49,9 @@ class RaceHarnessDriver:
 
         if encoding == RaceHarnessEncoding.Rhir:
             print(rh_context, file=output)
+        elif encoding == RaceHarnessEncoding.Canonical:
+            codegen = CanonicalCodegen(output)
+            codegen.codegen_module(rh_context, rh_module)
         else:
             st_module = STModule()
             rhst_translator = RHSTTranslator(rh_context, st_module)
