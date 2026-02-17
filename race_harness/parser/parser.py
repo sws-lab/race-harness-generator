@@ -3,7 +3,7 @@ import dataclasses
 from typing import Optional
 import lark
 from race_harness.error import RHError
-from race_harness.ir import RHContext, RHTransmissionOp, RHExternalActionOp, RHSetAddOp, RHSetDelOp, RHNondetPred, RHSetEmptyPred, RHSetHasPred, RHReceivalPred, RHConjunctionPred, RHEffectBlock, RHPredicate, RHModule
+from race_harness.ir import RHContext, RHTransmissionOp, RHExternalActionOp, RHSetAddOp, RHSetDelOp, RHNondetPred, RHSetEmptyPred, RHSetHasPred, RHReceivalPred, RHConjunctionPred, RHEffectBlock, RHPredicate, RHModule, RHIdentityPred
 from race_harness.parser.scope import RHScope
 
 SCRIPT_FILEPATH = pathlib.Path(__file__)
@@ -362,6 +362,11 @@ class RHInterp(lark.visitors.Interpreter):
         set_name = self.visit(tree.children[1])
         set_ref = self._scope[set_name]
         return self._ctx.new_predicate(RHSetEmptyPred(set_ref))
+    
+    def cond_is(self, tree: lark.Tree):
+        left = self._scope[self.visit(tree.children[0])]
+        right = self._scope[self.visit(tree.children[2])]
+        return self._ctx.new_predicate(RHIdentityPred(left, right))
     
     def cond_and(self, tree: lark.Tree):
         conj = list()

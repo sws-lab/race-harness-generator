@@ -22,6 +22,9 @@ class STModule:
         self._transitions[trans_id] = trans
         return trans
     
+    def delete_transition(self, transition_id: STTransitionID):
+        del self._transitions[transition_id]
+    
     @property
     def nodes(self) -> Iterable[STNodeID]:
         yield from self._nodes

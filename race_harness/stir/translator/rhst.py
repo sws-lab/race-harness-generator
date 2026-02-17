@@ -141,7 +141,9 @@ class RHSTTranslator:
         for bindings in self._enumerate_condition_bindings(trans_ctx, instance_ctx, condition):
             transition = self._st_module.new_transition(instance_ctx.node_slot, pred_node, block_ctx.node, neg_condition)
             if condition is not None:
-                self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, condition, bindings)
+                if not self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, condition, bindings):
+                    self._st_module.delete_transition(transition.identifier)
+                    continue
 
             for oper in block_ctx.block.content:
                 if ext_action := oper.as_external_action():
@@ -169,6 +171,13 @@ class RHSTTranslator:
     def translate_condition(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, transition: STTransition, neg_condition: bool, condition: RHPredicate, bindings: Dict[RHRef, Tuple[RHRef, RHRef]]):
         if condition.operation.as_nondet():
             pass
+        elif identity := condition.operation.as_identity():
+            _, lhs = bindings.get(identity.left, identity.left)
+            _, rhs = bindings.get(identity.right, identity.right)
+            if lhs == rhs:
+                pass
+            else:
+                return False
         elif set_empty := condition.operation.as_set_empty():
             set: RHSet = self._context[set_empty.target_set].to_set()
             for elt in self._context[set.domain].to_domain():
@@ -187,7 +196,9 @@ class RHSTTranslator:
                     transition.add_instruction(STSetIntInstruction(slot_id, -1))
         elif conjunction := condition.operation.as_conjunction():
             for conj in conjunction.conjuncts:
-                self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, self._context[conj].to_predicate(), bindings)
+                if not self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, self._context[conj].to_predicate(), bindings):
+                    return False
+        return True
 
     def _get_msg_slot(self, trans_ctx: TranslatorContext, sender_ref: RHRef, receiver_ref: RHRef, message_ref: RHRef) -> STSlotID:
         domain_ref = trans_ctx.message_domains[message_ref]

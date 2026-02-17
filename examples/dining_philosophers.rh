@@ -1,20 +1,16 @@
 channel messages {
-    requestL
-    requestR
-    permitL
-    permitR
+    request
+    permit
 }
 
 proc philosopher in messages out messages (left right) {
     loop {
-        if recv requestL from other then
-            send permitL other
-        if recv requestR from other then
-            send permitR other
+        if recv request from other then
+            send permit other
         do think
-        send requestR left
-        send requestL right
-        if recv permitR and recv permitL then {
+        send request left
+        send request right
+        if recv permit from other and other is left and recv permit from other2 and other2 is right then {
             do take_forks
             do eat
             do put_forks

@@ -21,6 +21,9 @@ class RHPredicateOp:
     def as_receival(self) -> 'RHReceivalPred':
         return None
     
+    def as_identity(self) -> 'RHIdentityPred':
+        return None
+    
     def _coerce(self, value):
         if value is None:
             raise RHError('Predicate type mismatch')
@@ -121,4 +124,27 @@ class RHReceivalPred(RHPredicateOp):
                 str(ref)
                 for ref in self.messages
             )
+        )
+    
+class RHIdentityPred(RHPredicateOp):
+    def __init__(self, lhs: RHRef, rhs: RHRef):
+        super().__init__()
+        self._left = lhs
+        self._right = rhs
+
+    def as_identity(self) -> 'RHIdentityPred':
+        return self
+    
+    @property
+    def left(self) -> RHRef:
+        return self._left
+    
+    @property
+    def right(self) -> RHRef:
+        return self._right
+
+    def __str__(self):
+        return '{} is {}'.format(
+            self.left,
+            self.right
         )
