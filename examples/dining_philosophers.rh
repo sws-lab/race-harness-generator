@@ -1,0 +1,28 @@
+channel messages {
+    requestL
+    requestR
+    permitL
+    permitR
+}
+
+proc philosopher in messages out messages (left right) {
+    loop {
+        if recv requestL from other then
+            send permitL other
+        if recv requestR from other then
+            send permitR other
+        do think
+        send requestR left
+        send requestL right
+        if recv permitR and recv permitL then {
+            do take_forks
+            do eat
+            do put_forks
+        }
+    }
+}
+
+run p1 philosopher (p4 p2)
+run p2 philosopher (p1 p3)
+run p3 philosopher (p2 p4)
+run p4 philosopher (p3 p1)

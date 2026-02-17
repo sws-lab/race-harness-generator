@@ -1,0 +1,36 @@
+[preamble.global]
+embed_header = true
+code = """
+#include <stdlib.h>
+#include <stdio.h>
+
+static _Atomic int eaters = 0;
+"""
+
+[preamble.local.philosopher]
+code = ''
+
+[payload.think]
+code = '''
+printf("think %u\n", RH_PROCESS_ID);
+'''
+
+[payload.take_forks]
+code = '''
+printf("take forks %u\n", RH_PROCESS_ID);
+if ((eaters++) == 2) {
+    fprintf(stderr, "Conflict!\n");
+    abort();
+}
+'''
+
+[payload.eat]
+code = '''
+printf("eat %u\n", RH_PROCESS_ID);
+'''
+
+[payload.put_forks]
+code = '''
+printf("put forks %u\n", RH_PROCESS_ID);
+eaters--;
+'''
