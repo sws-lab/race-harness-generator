@@ -31,6 +31,7 @@ class RHInterp(lark.visitors.Interpreter):
     def module(self, tree: lark.Tree):
         protos = dict()
         instances = list()
+        params = list()
         for tld in tree.children:
             proc = self.visit(tld)
             if proc[0] is not None:
@@ -38,14 +39,21 @@ class RHInterp(lark.visitors.Interpreter):
                 if type == 'proto':
                     protos[payload[0]] = (payload[1], payload[2])
                 elif type == 'instance':
-                    instances.extend(payload)
-
+                    instance, instance_params = payload
+                    instances.extend(instance)
+                    params.append((instance, instance_params))
+        for ins, params in params:
+            for instance in ins:
+                for param in params:
+                    self._ctx[instance].to_instance().add_parameter(self._scope.resolve(param))
         processes = list()
         for proto, (name, tree) in protos.items():
             proc_scope = RHScope(self._scope)
             self._scopes.append(proc_scope)
             self._proto = proto
             self._block_succs = dict()
+            for param in proto.parameters:
+                self._scope.bind(self._ctx[param].to_symbol().label, param)
             entry_block = self._ctx.new_effect_block()
             self._current_block = entry_block
             self._control_flow = self._ctx.new_control_flow()
@@ -75,9 +83,19 @@ class RHInterp(lark.visitors.Interpreter):
     def proc_decl(self, tree: lark.Tree):
         decl_name = str(tree.children[1])
         in_proto, out_proto = self.visit(tree.children[2])
-        decl = self._ctx.new_protocol(decl_name, in_proto, out_proto)
+        params = self.visit(tree.children[3])
+        decl = self._ctx.new_protocol(decl_name, in_proto, out_proto, params)
         self._scope.bind(decl_name, decl.ref)
-        return ('proto', (decl, decl_name, tree.children[3]))
+        return ('proto', (decl, decl_name, tree.children[4]))
+    
+    def proc_params(self, tree: lark.Tree):
+        if len(tree.children) > 0:
+            return [
+                self._ctx.new_symbol(self.visit(child)).ref
+                for child in tree.children[1:-1]
+            ]
+        else:
+            return list()
 
     def proc_protocol_decl(self, tree: lark.Tree):
         in_proto, out_proto = None, None
@@ -97,22 +115,38 @@ class RHInterp(lark.visitors.Interpreter):
     def proc_single_instance(self, tree: lark.Tree):
         instance_name = str(tree.children[1])
         proc_name = str(tree.children[2])
+        if len(tree.children[3].children) > 0:
+            proc_params = [
+                self.visit(child)
+                for child in tree.children[3].children[1:-1]
+            ]
+        else:
+            proc_params = list()
         proc_ref = self._scope.resolve(proc_name)
         instance = self._ctx.new_instance(instance_name, proc_ref)
         self._scope.bind(instance_name, instance.ref)
-        return ('instance', [instance.ref])
+        return ('instance', ([instance.ref], proc_params))
 
     def proc_multi_instance(self, tree: lark.Tree):
         instance_name = str(tree.children[1])
         cardinality = int(tree.children[3])
         proc_name = str(tree.children[5])
+        if len(tree.children[6].children) > 0:
+            proc_params = [
+                self.visit(child)
+                for child in tree.children[6].children[1:-1]
+            ]
+        else:
+            proc_params = list()
         proc_ref = self._scope.resolve(proc_name)
         items = list()
         for i in range(cardinality):
-            items.append(self._ctx.new_instance(f'{instance_name}{i}', proc_ref).ref)
+            ref = self._ctx.new_instance(f'{instance_name}{i}', proc_ref).ref
+            items.append(ref)
+            self._scope.bind(f'{instance_name}{i}', ref)
         ref = self._ctx.new_domain(instance_name, items).ref
         self._scope.bind(instance_name, ref)
-        return ('instance', items)
+        return ('instance', (items, proc_params))
 
     def compound_stmt(self, tree: lark.Tree):
         scope = RHScope(self._scope)

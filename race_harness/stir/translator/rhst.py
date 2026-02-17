@@ -138,7 +138,7 @@ class RHSTTranslator:
                 block_queue.append((block_ctx.node, True, edge.condition, edge.alternative))
 
     def translate_block(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, block_ctx: BlockContext, pred_node: STNodeID, neg_condition: bool, condition: Optional[RHPredicate]):
-        for bindings in self._enumerate_condition_bindings(trans_ctx, condition):
+        for bindings in self._enumerate_condition_bindings(trans_ctx, instance_ctx, condition):
             transition = self._st_module.new_transition(instance_ctx.node_slot, pred_node, block_ctx.node, neg_condition)
             if condition is not None:
                 self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, condition, bindings)
@@ -206,21 +206,29 @@ class RHSTTranslator:
             trans_ctx.set_element_slots[key] = slot_id
         return slot_id
     
-    def _enumerate_condition_bindings(self, trans_ctx: TranslatorContext, condition: Optional[RHPredicate]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+    def _enumerate_condition_bindings(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, condition: Optional[RHPredicate]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+        base = {
+            param_id: (None, param)
+            for param_id, param in zip(instance_ctx.instance.protocol.parameters, instance_ctx.instance.parameters)
+        }
+
         if condition is None:
-            yield dict()
+            yield base
             return
         
         visited = set()
-        for binding in self._enumerate_condition_bindings_impl(trans_ctx, condition):
+        for binding in self._enumerate_condition_bindings_impl(trans_ctx, instance_ctx, condition):
             container = BindingsContainer(binding)
             if container not in visited:
-                yield binding
+                yield {
+                    **base,
+                    **binding
+                }
                 visited.add(container)
         if not visited:
-            yield dict()
+            yield base
     
-    def _enumerate_condition_bindings_impl(self, trans_ctx: TranslatorContext, condition: RHPredicate) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+    def _enumerate_condition_bindings_impl(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, condition: RHPredicate) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
         if condition.operation.as_receival():
             for msg in condition.operation.as_receival().messages:
                 for instance in self._enum_sender_instances(trans_ctx, msg):
@@ -228,9 +236,9 @@ class RHSTTranslator:
                         condition.ref: (msg, instance.ref)
                     }
         elif condition.operation.as_conjunction():
-            yield from self._enum_conjunction_bindings(trans_ctx, condition.operation.as_conjunction().conjuncts)
+            yield from self._enum_conjunction_bindings(trans_ctx, instance_ctx, condition.operation.as_conjunction().conjuncts)
 
-    def _enum_conjunction_bindings(self, trans_ctx: TranslatorContext, conjuncts: List[RHRef]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+    def _enum_conjunction_bindings(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, conjuncts: List[RHRef]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
         if not conjuncts:
             return
 
@@ -238,11 +246,11 @@ class RHSTTranslator:
         conj_tail = conjuncts[1:]
 
         if not conj_tail:
-            yield from self._enumerate_condition_bindings(trans_ctx, self._context[conj_head].to_predicate())
+            yield from self._enumerate_condition_bindings(trans_ctx, instance_ctx, self._context[conj_head].to_predicate())
             return
         
-        for variant in self._enumerate_condition_bindings(trans_ctx, self._context[conj_head].to_predicate()):
-            for subvariant in self._enum_conjunction_bindings(trans_ctx, conj_tail):
+        for variant in self._enumerate_condition_bindings(trans_ctx, instance_ctx, self._context[conj_head].to_predicate()):
+            for subvariant in self._enum_conjunction_bindings(trans_ctx, instance_ctx, conj_tail):
                 yield {
                     **variant,
                     **subvariant

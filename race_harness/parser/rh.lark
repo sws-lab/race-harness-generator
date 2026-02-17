@@ -37,6 +37,8 @@ LEFT_BRACKET: "["
 RIGHT_BRACKET: "]"
 LEFT_BRACE: "{"
 RIGHT_BRACE: "}"
+LEFT_PAREN: "("
+RIGHT_PAREN: ")"
 COLON: ":"
 
 symbol: IDENTIFIER
@@ -71,10 +73,11 @@ channel_decl: KW_CHANNEL IDENTIFIER LEFT_BRACE channel_entries RIGHT_BRACE
 
 protocol_channel_list: symbol protocol_channel_list?
 proc_protocol_decl: (KW_IN protocol_channel_list)? (KW_OUT protocol_channel_list)?
-proc_decl: KW_PROC IDENTIFIER proc_protocol_decl stmt
+proc_params: (LEFT_PAREN symbol* RIGHT_PAREN)?
+proc_decl: KW_PROC IDENTIFIER proc_protocol_decl proc_params stmt
 
-proc_instance: KW_RUN IDENTIFIER IDENTIFIER -> proc_single_instance
-             | KW_RUN IDENTIFIER LEFT_BRACKET INTEGER RIGHT_BRACKET IDENTIFIER -> proc_multi_instance
+proc_instance: KW_RUN IDENTIFIER IDENTIFIER proc_params -> proc_single_instance
+             | KW_RUN IDENTIFIER LEFT_BRACKET INTEGER RIGHT_BRACKET IDENTIFIER proc_params -> proc_multi_instance
 
 top_level_decl: proc_decl | proc_instance | channel_decl
 

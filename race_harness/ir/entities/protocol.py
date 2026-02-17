@@ -4,10 +4,11 @@ from race_harness.ir.entities.entity import RHEntity
 from race_harness.ir.entities.domain import RHDomain
 
 class RHProtocol(RHEntity):
-    def __init__(self, ref: RHRef, label: str, in_proto: Iterable[RHDomain], out_proto: Iterable[RHDomain]):
+    def __init__(self, ref: RHRef, label: str, in_proto: Iterable[RHDomain], out_proto: Iterable[RHDomain], params: Iterable[RHRef]):
         super().__init__(ref, label)
         self._in_proto = list(in_proto)
         self._out_proto = list(out_proto)
+        self._params = list(params)
 
     def as_protocol(self):
         return self
@@ -19,9 +20,13 @@ class RHProtocol(RHEntity):
     @property
     def out_protocol(self) -> Iterable[RHDomain]:
         yield from self._out_proto
+
+    @property
+    def parameters(self) -> Iterable[RHRef]:
+        yield from self._params
     
     def __str__(self):
-        return 'protocol {}{}{}'.format(
+        return 'protocol {}{}{}{}'.format(
             self.label,
             ' in {}'.format(', '.join(
                 str(chan.ref)
@@ -30,5 +35,9 @@ class RHProtocol(RHEntity):
             ' out {}'.format(', '.join(
                 str(chan.ref)
                 for chan in self.out_protocol
-            )) if self._in_proto else ''
+            )) if self._in_proto else '',
+            ' ({})'.format(', '.join(
+                str(ref)
+                for ref in self.parameters
+            )) if self._params else ''
         )

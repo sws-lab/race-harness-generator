@@ -23,11 +23,11 @@ class RHContext:
         self._add_entity(domain)
         return domain
     
-    def new_protocol(self, name: str, in_proto: Iterable[RHRef], out_proto: Iterable[RHRef]) -> RHProtocol:
+    def new_protocol(self, name: str, in_proto: Iterable[RHRef], out_proto: Iterable[RHRef], params: Iterable[RHRef]) -> RHProtocol:
         def map_channels(channels):
             for chan in channels:
                 yield self[chan].to_domain()
-        decl = RHProtocol(self._new_ref(), name, map_channels(in_proto), map_channels(out_proto))
+        decl = RHProtocol(self._new_ref(), name, map_channels(in_proto), map_channels(out_proto), params)
         self._add_entity(decl)
         return decl
     
