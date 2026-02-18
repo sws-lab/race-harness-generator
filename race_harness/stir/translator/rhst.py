@@ -91,7 +91,7 @@ class RHSTTranslator:
             for domain in process.protocol.out_protocol:
                 for message in domain:
                     trans_ctx.message_domains[message] = domain
-                if domain not in trans_ctx.outbound_messaging:
+                if domain.ref not in trans_ctx.outbound_messaging:
                     trans_ctx.outbound_messaging[domain.ref] = set()
                 trans_ctx.outbound_messaging[domain.ref].add(process)
         for instance in module.instances:
