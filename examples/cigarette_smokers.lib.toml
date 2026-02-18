@@ -1,0 +1,26 @@
+[preamble.global]
+embed_header = true
+code = """
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+
+static _Atomic int smokers = 0;
+"""
+
+[preamble.local.smoker]
+code = ''
+
+[payload.smoke]
+code = '''
+printf("smoke %u\n", RH_PROCESS_ID);
+if (smokers++ != 0) {
+    fprintf(stderr, "Conflict!\n");
+    abort();
+}
+usleep(10000);
+smokers--;
+'''
+
+[payload.nothing]
+code = ''

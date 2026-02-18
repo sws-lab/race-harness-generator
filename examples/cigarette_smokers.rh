@@ -1,0 +1,45 @@
+channel messages {
+    request1
+    request2
+    supply
+    consume
+}
+
+proc smoker in messages out messages (ingridient1 ingridient2) {
+    loop {
+        if recv request1 then {
+            send supply ingridient1
+        }
+        if recv request2 then {
+            send supply ingridient2
+        }
+        if recv supply from other1 and other1 is ingridient1 and recv supply from other2 and other2 is ingridient2 then {
+            do smoke
+            send consume arbiter
+        }
+    }
+}
+
+proc parbiter in messages out messages {
+    loop {
+        if nondet then {
+            send request2 tobacco
+            send request1 paper
+        } else if nondet then {
+            send request2 paper
+            send request1 matches
+        } else {
+            send request2 matches
+            send request1 tobacco
+        }
+
+        wait: loop {
+            if recv consume then break wait
+        }
+    }
+}
+
+run tobacco smoker (paper matches)
+run paper smoker (matches tobacco)
+run matches smoker (tobacco paper)
+run arbiter parbiter

@@ -3,6 +3,7 @@ embed_header = true
 code = """
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 static _Atomic int eaters = 0;
 """
@@ -27,6 +28,7 @@ if ((eaters++) == 2) {
 [payload.eat]
 code = '''
 printf("eat %u\n", RH_PROCESS_ID);
+usleep(10);
 '''
 
 [payload.put_forks]
