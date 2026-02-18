@@ -140,21 +140,23 @@ class RaceHarnessDriver:
             )
             pins2lts_seq_proc.wait()
 
-            with open(state_space_csv_filepath, 'w') as state_space_csv_file:
-                stir_bin_export = subprocess.Popen(
-                    args=[
-                        stir_bin_export_filepath,
-                        stir_filepath,
-                        str(state_space_bin_filepath)
-                    ],
-                    executable=stir_bin_export_filepath,
-                    stdout=state_space_csv_file,
-                    shell=False
-                )
-                stir_bin_export.wait()
-
-            with open(state_space_csv_filepath) as state_space_file:
-                yield from state_space_file
+            stir_bin_export = subprocess.Popen(
+                args=[
+                    stir_bin_export_filepath,
+                    str(stir_filepath),
+                    str(state_space_bin_filepath)
+                ],
+                executable=stir_bin_export_filepath,
+                stdout=subprocess.PIPE,
+                shell=False
+            )
+            output = b''
+            for buf in stir_bin_export.stdout:
+                output += buf
+            stir_bin_export.wait()
+            
+            for line in output.decode().splitlines():
+                yield f'{line}\n'
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(prog=sys.argv[0], description='Race harness generator')
