@@ -1,5 +1,5 @@
 SIMU_CC ?= cc
-SIMU_CFLAGS ?= -O3 -march=native -ggdb -fsanitize=thread
+SIMU_CFLAGS ?= -O3 -march=native -ggdb
 
 OUT_DIR := out
 EXAMPLES_DIR := examples
@@ -9,6 +9,7 @@ STIR_BIN_EXPORT := $(PINS_STIR_DIR)/stir-bin-export
 
 LTSMIN_DIR?=
 GOBLINT?=
+AFLPP_DIR?=
 
 C_SOURCE := $(shell find pins-stir -name "*.c" -or -name "*.h")
 PYTHON_SOURCE := $(shell find race_harness/ -name "*.py")
@@ -21,10 +22,11 @@ EXAMPLES_SIMU_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu.c,$(EXAMPLE
 EXAMPLES_STIR_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.stir.c,$(EXAMPLES_SOURCE))
 EXAMPLES_GOBLINT_C := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.goblint.c,$(EXAMPLES_SOURCE))
 EXAMPLES_SIMU_EXE := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu,$(EXAMPLES_SOURCE))
+EXAMPLES_AFL_EXE := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.afl,$(EXAMPLES_SOURCE))
 EXAMPLES_SIMU_STIR_EXE := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.simu.stir,$(EXAMPLES_SOURCE))
 EXAMPLES_GOBLINT_LOGS := $(patsubst $(EXAMPLES_DIR)/%.rh,$(OUT_DIR)/%.goblint.log,$(EXAMPLES_SOURCE))
 
-all: all-rhir all-stir all-simu-exe all-goblint-logs all-stir-c all-simu-stir-exe
+all: all-rhir all-stir all-simu-exe all-goblint-logs all-stir-c all-simu-stir-exe all-simu-afl
 
 all-rhir: $(EXAMPLES_RHIR)
 
@@ -43,6 +45,12 @@ all-simu-stir-exe: $(EXAMPLES_SIMU_STIR_EXE)
 all-goblint-c: $(EXAMPLES_GOBLINT_C) $(EXAMPLES_H)
 
 all-goblint-logs: $(EXAMPLES_GOBLINT_LOGS)
+
+ifneq ($(AFLPP_DIR),)
+all-simu-afl: $(EXAMPLES_AFL_EXE)
+else
+all-simu-afl:
+endif
 
 clean:
 	rm -rf $(OUT_DIR)
@@ -92,7 +100,12 @@ $(OUT_DIR)/%.goblint.c: $(OUT_DIR)/%.csv $(EXAMPLES_DIR)/%.lib.toml
 	mv "$@.tmp" "$@"
 
 $(OUT_DIR)/%.simu: $(EXAMPLES_DIR)/%.lib.c $(OUT_DIR)/%.simu.c $(OUT_DIR)/%.h
-	$(SIMU_CC) -I$(OUT_DIR) -include $(patsubst $(OUT_DIR)/%.simu,$(OUT_DIR)/%.h,$@) $(SIMU_CFLAGS) -o "$@" $< $(patsubst $(OUT_DIR)/%.simu,$(OUT_DIR)/%.simu.c,$@)
+	$(SIMU_CC) -I$(OUT_DIR) -include $(patsubst $(OUT_DIR)/%.simu,$(OUT_DIR)/%.h,$@) $(SIMU_CFLAGS) -fsanitize=thread -o "$@" $< $(patsubst $(OUT_DIR)/%.simu,$(OUT_DIR)/%.simu.c,$@)
+
+ifneq ($(AFLPP_DIR),)
+$(OUT_DIR)/%.afl: $(EXAMPLES_DIR)/%.lib.c $(OUT_DIR)/%.simu.c $(OUT_DIR)/%.h
+	$(AFLPP_DIR)/bin/afl-clang-lto -I$(OUT_DIR) -include $(patsubst $(OUT_DIR)/%.afl,$(OUT_DIR)/%.h,$@) $(SIMU_CFLAGS) -DRACE_HARNESS_FUZZ -o "$@" $< $(patsubst $(OUT_DIR)/%.afl,$(OUT_DIR)/%.simu.c,$@)
+endif
 
 $(OUT_DIR)/%.simu.stir: $(OUT_DIR)/%.stir.c
 	$(SIMU_CC) $(SIMU_CFLAGS) -o "$@" $< -latomic

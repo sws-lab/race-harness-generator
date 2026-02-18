@@ -13,10 +13,38 @@ class ExecutableLBECodegen(BaseCodegen):
         self._do_codegen(self._codegen_module, module, payloads)
     
     def _codegen_module(self, module: CFModule, payloads: Optional[CodegenPayloads]):
-        yield '''
+        yield f'''
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+
+#ifdef RACE_HARNESS_FUZZ
+#include <unistd.h>
+#include <sys/time.h>
+
+#ifndef RACE_HARNESS_FUZZ_BUFFER
+#define RACE_HARNESS_FUZZ_BUFFER 1024
+#endif
+
+struct thread_rand_source {{
+\tint buffer[RACE_HARNESS_FUZZ_BUFFER];
+\tint ptr;
+}} rh_fuzz_rand_souces[{len(module.procedures)}];
+
+_Thread_local unsigned int rh_fuzz_thread_id;
+
+#define RH_RAND() rh_fuzz_read_rand()
+
+static int rh_fuzz_read_rand() {{
+\tstruct thread_rand_source *input = &rh_fuzz_rand_souces[rh_fuzz_thread_id];
+\tint res = input->buffer[input->ptr];
+\tinput->ptr = (input->ptr + 1) % (sizeof(input->buffer) / sizeof(input->buffer[0]));
+\treturn res;
+}}
+#else
+
+#define RH_RAND() rand()
+#endif
 '''
 
         if payloads and payloads.embed_header:
@@ -36,12 +64,15 @@ class ExecutableLBECodegen(BaseCodegen):
         yield 'static pthread_barrier_t init_barrier;'
         yield ''
 
-        for procedure_name, (process_name, procedure_body) in module.procedures.items():
+        for index, (procedure_name, (process_name, procedure_body)) in enumerate(module.procedures.items()):
             yield f'static void *{procedure_name}(void *arg) {{'
             yield 1
             yield '(void) arg;'
             yield f'#define RH_PROCESS_ID RH_PROC_{procedure_name.upper()}'
             yield 'void *rh_hook_payload = NULL;'
+            yield '#ifdef RACE_HARNESS_FUZZ'
+            yield f'rh_fuzz_thread_id = {index};'
+            yield '#endif'
             local_preamble = payloads.get_local_preamble(process_name) if payloads else None
             if local_preamble:
                 yield ''
@@ -79,11 +110,30 @@ class ExecutableLBECodegen(BaseCodegen):
         if has_processes:
             yield ''
 
+        yield '#ifdef RACE_HARNESS_FUZZ'
+        yield 'for (int i = 0; i < sizeof(rh_fuzz_rand_souces) / sizeof(rh_fuzz_rand_souces[0]); i++) {'
+        yield 1
+        yield 'read(STDIN_FILENO, rh_fuzz_rand_souces[i].buffer, sizeof(rh_fuzz_rand_souces[i].buffer));'
+        yield -1
+        yield '}'
+        yield '#endif'
+
         for procedure_name, procedure_body in module.procedures.items():
             yield f'pthread_create(&{procedure_name}_process, NULL, {procedure_name}, NULL);'
 
         if has_processes:
             yield ''
+
+        yield '#ifdef RACE_HARNESS_FUZZ'
+        yield 'const char *timeout_str = getenv("RACE_HARNESS_TIMEOUT");'
+        yield 'if (timeout_str && *timeout_str) {'
+        yield 1
+        yield 'unsigned long timeout = strtoull(timeout_str, NULL, 10);'
+        yield 'usleep(timeout);'
+        yield 'exit(EXIT_SUCCESS);'
+        yield -1
+        yield '}'
+        yield '#endif'
 
 
         for procedure_name, procedure_body in module.procedures.items():
@@ -120,13 +170,13 @@ class ExecutableLBECodegen(BaseCodegen):
                 if idx == 0:
                     if len(branch.branches) > 1:
                         yield BaseCodegen.NO_NL
-                        yield f'if (rand() % {len(branch.branches) - idx} == 0) '
+                        yield f'if (RH_RAND() % {len(branch.branches) - idx} == 0) '
                         yield from self._codegen_node(module, payloads, procedure_name, item)
                     else:
                         yield from self._codegen_node(module, payloads, procedure_name, item)
                 elif idx + 1 < len(branch.branches):
                     yield BaseCodegen.NO_NL
-                    yield f'else if (rand() % {len(branch.branches) - idx} == 0) '
+                    yield f'else if (RH_RAND() % {len(branch.branches) - idx} == 0) '
                     yield from self._codegen_node(module, payloads, procedure_name, item)
                 else:
                     yield BaseCodegen.NO_NL
