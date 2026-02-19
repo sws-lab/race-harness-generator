@@ -1,6 +1,7 @@
 import dataclasses
 from typing import Dict, List, Tuple, Optional, Iterable, Set
 from race_harness.ir import RHModule, RHContext, RHProtocol, RHProcess, RHInstance, RHEffectBlock, RHUnconditionalControlFlowEdge, RHConditionalControlFlowEdge, RHPredicate, RHRef, RHSet, RHDomain
+from race_harness.ir.util.dominance import RHControlFlowDominators
 from race_harness.stir import STModule, STNodeID, STExternalActionInstruction, STSlotID, STTransition, STSetIntInstruction, STIntGuardCondition
 from race_harness.stir.translator.mapping import STRHMapping
 
@@ -16,6 +17,7 @@ class InstanceContext:
     entry_node: STNodeID
     exit_node: STNodeID
     node_slot: STSlotID
+    dominance: RHControlFlowDominators
 
 @dataclasses.dataclass
 class TranslatorContext:
@@ -101,8 +103,10 @@ class RHSTTranslator:
                 process=trans_ctx.protocol_impl[instance.protocol],
                 entry_node=entry_node,
                 exit_node=self._st_module.new_node(),
-                node_slot=self._st_module.state.new_node_slot(entry_node)
+                node_slot=self._st_module.state.new_node_slot(entry_node),
+                dominance=RHControlFlowDominators(self._context)
             )
+            trans_ctx.instance_context[instance].dominance.build(trans_ctx.instance_context[instance].process.entry_block.ref, trans_ctx.instance_context[instance].process.control_flow)
 
         for instance_ctx in trans_ctx.instance_context.values():
             self.translate_instance(trans_ctx, instance_ctx)
@@ -138,7 +142,12 @@ class RHSTTranslator:
                 block_queue.append((block_ctx.node, True, edge.condition, edge.alternative))
 
     def translate_block(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, block_ctx: BlockContext, pred_node: STNodeID, neg_condition: bool, condition: Optional[RHPredicate]):
-        for bindings in self._enumerate_condition_bindings(trans_ctx, instance_ctx, condition):
+        dom_conditions = [condition]
+        for dom in instance_ctx.dominance[block_ctx.block.ref]:
+            if edge := instance_ctx.process.control_flow.edge_from(dom):
+                if isinstance(edge, RHConditionalControlFlowEdge) and edge.condition != condition:
+                    dom_conditions.append(edge.condition)
+        for bindings in self._enumerate_conditions_bindings(trans_ctx, instance_ctx, dom_conditions):
             transition = self._st_module.new_transition(instance_ctx.node_slot, pred_node, block_ctx.node, neg_condition)
             if condition is not None:
                 if not self.translate_condition(trans_ctx, instance_ctx, transition, neg_condition, condition, bindings):
@@ -172,8 +181,8 @@ class RHSTTranslator:
         if condition.operation.as_nondet():
             pass
         elif identity := condition.operation.as_identity():
-            _, lhs = bindings.get(identity.left, identity.left)
-            _, rhs = bindings.get(identity.right, identity.right)
+            _, lhs = bindings.get(identity.left, (None, identity.left))
+            _, rhs = bindings.get(identity.right, (None, identity.right))
             if lhs == rhs:
                 pass
             else:
@@ -201,7 +210,7 @@ class RHSTTranslator:
         return True
 
     def _get_msg_slot(self, trans_ctx: TranslatorContext, sender_ref: RHRef, receiver_ref: RHRef, message_ref: RHRef) -> STSlotID:
-        domain_ref = trans_ctx.message_domains[message_ref]
+        domain_ref = trans_ctx.message_domains[message_ref].ref
         key = (sender_ref, receiver_ref, domain_ref)
         slot_id = trans_ctx.message_slots.get(key, None)
         if slot_id is None:
@@ -216,6 +225,24 @@ class RHSTTranslator:
             slot_id = self._st_module.state.new_int_slot(0)
             trans_ctx.set_element_slots[key] = slot_id
         return slot_id
+    
+    def _enumerate_conditions_bindings(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, conditions: List[RHPredicate]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
+        if not conditions:
+            yield dict()
+            return
+
+        head = conditions[0]
+        tail = conditions[1:]
+        has_bindings = False
+        for binding in self._enumerate_condition_bindings(trans_ctx, instance_ctx, head):
+            for binding2 in self._enumerate_conditions_bindings(trans_ctx, instance_ctx, tail):
+                yield {
+                    **binding,
+                    **binding2
+                }
+                has_bindings = True
+        if not has_bindings:
+            yield dict()
     
     def _enumerate_condition_bindings(self, trans_ctx: TranslatorContext, instance_ctx: InstanceContext, condition: Optional[RHPredicate]) -> Iterable[Dict[RHRef, Tuple[RHRef, RHRef]]]:
         base = {
