@@ -16,6 +16,7 @@ from race_harness.ir.transform import optimize_module_control_flow
 from race_harness.stir import STModule, STNodeID
 from race_harness.stir.translator import RHSTTranslator
 from race_harness.stir.serialize import STSerialize
+from race_harness.stir.compact import compact_st_module
 from race_harness.control_flow import CFConstructor
 from race_harness.codegen.goblint import GoblintLBECodegen
 from race_harness.codegen.executable import ExecutableLBECodegen
@@ -56,6 +57,7 @@ class RaceHarnessDriver:
             st_module = STModule()
             rhst_translator = RHSTTranslator(rh_context, st_module)
             rhst_translator.translate_module(rh_module)
+            st_module = compact_st_module(st_module)
 
             if encoding == RaceHarnessEncoding.Stir:
                 serializer = STSerialize(output)
