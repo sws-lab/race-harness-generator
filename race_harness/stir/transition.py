@@ -50,7 +50,7 @@ class STTransition:
     
     @property
     def invert_guard(self) -> bool:
-        return self._invert_guard
+        return self._invert_guard and len(self._guards) > 0
 
     @property
     def guards(self) -> Iterable[STGuardCondition]:

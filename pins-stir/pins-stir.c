@@ -105,18 +105,28 @@ static int next_state(model_t model, int group, int *src, TransitionCB cb, void 
     if (src[transition->component_slot_id] != transition->src_node) {
         return 0;
     }
-    int satisfies_cond = !transition->invert_guard;
-    for (size_t i = 0; i < transition->num_of_guards; i++) {
-        switch (transition->guards[i].type) {
-            case STIR_MODEL_GUARD_INT:
-                if (src[transition->guards[i].int_guard.slot_id] != transition->guards[i].int_guard.value) {
-                    satisfies_cond = 0;
-                }
-                break;
+    int satisfies_cond = 1;
+    if (!transition->invert_guard) {
+        for (size_t i = 0; i < transition->num_of_guards; i++) {
+            switch (transition->guards[i].type) {
+                case STIR_MODEL_GUARD_INT:
+                    if (src[transition->guards[i].int_guard.slot_id] != transition->guards[i].int_guard.value) {
+                        satisfies_cond = 0;
+                    }
+                    break;
+            }
         }
-    }
-    if (transition->invert_guard) {
-        satisfies_cond = !satisfies_cond;
+    } else {
+        satisfies_cond = 0;
+        for (size_t i = 0; i < transition->num_of_guards; i++) {
+            switch (transition->guards[i].type) {
+                case STIR_MODEL_GUARD_INT:
+                    if (src[transition->guards[i].int_guard.slot_id] != transition->guards[i].int_guard.value) {
+                        satisfies_cond = 1;
+                    }
+                    break;
+            }
+        }
     }
     if (!satisfies_cond) {
         return 0;
