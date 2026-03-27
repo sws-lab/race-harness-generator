@@ -289,16 +289,16 @@ class RHInterp(lark.visitors.Interpreter):
         return exit_blocks
     
     def set_add_stmt(self, tree: lark.Tree):
-        set_name = self.visit(tree.children[1])
-        value_name = self.visit(tree.children[3])
+        set_name = self.visit(tree.children[3])
+        value_name = self.visit(tree.children[1])
 
         set_ref = self._scope[set_name]
         value_ref = self._scope[value_name]
         self._ctx.add_operation(self._current_block.ref, RHSetAddOp(set_ref, value_ref))
     
     def set_del_stmt(self, tree: lark.Tree):
-        set_name = self.visit(tree.children[1])
-        value_name = self.visit(tree.children[3])
+        set_name = self.visit(tree.children[3])
+        value_name = self.visit(tree.children[1])
 
         set_ref = self._scope[set_name]
         value_ref = self._scope[value_name]
@@ -351,15 +351,15 @@ class RHInterp(lark.visitors.Interpreter):
         return pred
     
     def cond_set_has(self, tree: lark.Tree):
-        set_name = self.visit(tree.children[1])
-        value_name = self.visit(tree.children[3])
+        set_name = self.visit(tree.children[0])
+        value_name = self.visit(tree.children[2])
 
         set_ref = self._scope[set_name]
         value_ref = self._scope[value_name]
         return self._ctx.new_predicate(RHSetHasPred(set_ref, value_ref))
     
     def cond_set_empty(self, tree: lark.Tree):
-        set_name = self.visit(tree.children[1])
+        set_name = self.visit(tree.children[0])
         set_ref = self._scope[set_name]
         return self._ctx.new_predicate(RHSetEmptyPred(set_ref))
     

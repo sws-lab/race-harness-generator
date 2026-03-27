@@ -30,10 +30,10 @@ alive:
         send loaded cltproc
 loaded:
         loop if recv req_conn from client then {
-            set active_clients add client
+            add client to active_clients
             send grant client
-        } else if recv disconnect from client then set active_clients del client
-          else if set active_clients empty then break loaded
+        } else if recv disconnect from client then del client from active_clients
+          else if active_clients empty then break loaded
         send unload cltproc
         do unload
     }
